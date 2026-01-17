@@ -175,8 +175,31 @@ export async function ringRoutes(fastify: FastifyInstance) {
 		return { devices };
 	});
 
-	// Get device snapshot
-	fastify.get("/devices/:deviceId/snapshot", async (request, reply) => {
+	// Get device snapshot - special handling for token in query string (for img src)
+	fastify.get("/devices/:deviceId/snapshot", {
+		// Skip the normal auth hook - we'll handle it manually
+		preHandler: async (request, reply) => {
+			// Try to get token from query string first (for img src URLs)
+			const { token } = request.query as { token?: string };
+			
+			if (token) {
+				try {
+					const decoded = fastify.jwt.verify(token) as AuthUser;
+					request.user = decoded;
+					return;
+				} catch (err) {
+					return reply.status(401).send({ error: "Invalid token" });
+				}
+			}
+			
+			// Fall back to Authorization header
+			try {
+				await request.jwtVerify();
+			} catch (err) {
+				return reply.status(401).send({ error: "Unauthorized" });
+			}
+		}
+	}, async (request, reply) => {
 		const user = request.user as AuthUser;
 		const { deviceId } = request.params as { deviceId: string };
 

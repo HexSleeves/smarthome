@@ -81,10 +81,16 @@ class RingService extends EventEmitter {
 			const api = new RingApi({
 				email: authEmail,
 				password: authPassword,
-				...(twoFactorCode && { twoFactorAuthCode: twoFactorCode }),
 			});
 
-			// This will trigger auth and get refresh token
+			// If we have a 2FA code, we need to call getAuth directly with the code
+			// before calling getLocations, otherwise the code won't be sent
+			if (twoFactorCode) {
+				console.log('Calling restClient.getAuth with 2FA code...');
+				await api.restClient.getAuth(twoFactorCode);
+			}
+
+			// This will trigger auth (or use the already-authenticated session)
 			const locations = await api.getLocations();
 
 			// Success - clear any pending 2FA session

@@ -1,11 +1,11 @@
 import { getAccessToken } from "./api";
 
-type EventCallback = (data: any) => void;
+type EventCallback<T = Record<string, unknown>> = (data: T) => void;
 
 class WebSocketClient {
 	private ws: WebSocket | null = null;
 	private reconnectTimer: number | null = null;
-	private listeners: Map<string, Set<EventCallback>> = new Map();
+	private readonly listeners: Map<string, Set<EventCallback<unknown>>> = new Map();
 	private isConnecting = false;
 
 	connect() {
@@ -15,8 +15,8 @@ class WebSocketClient {
 		if (!token) return;
 
 		this.isConnecting = true;
-		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-		const wsUrl = `${protocol}//${window.location.host}/api/ws/events?token=${token}`;
+		const protocol = globalThis.location.protocol === "https:" ? "wss:" : "ws:";
+		const wsUrl = `${protocol}//${globalThis.location.host}/api/ws/events?token=${token}`;
 
 		this.ws = new WebSocket(wsUrl);
 
@@ -61,7 +61,7 @@ class WebSocketClient {
 
 	private scheduleReconnect() {
 		if (this.reconnectTimer) return;
-		this.reconnectTimer = window.setTimeout(() => {
+		this.reconnectTimer = globalThis.setTimeout(() => {
 			this.reconnectTimer = null;
 			this.connect();
 		}, 5000);
@@ -73,20 +73,24 @@ class WebSocketClient {
 		}
 	}
 
-	on(event: string, callback: EventCallback) {
+	on<T = Record<string, unknown>>(event: string, callback: EventCallback<T>) {
 		if (!this.listeners.has(event)) {
 			this.listeners.set(event, new Set());
 		}
-		this.listeners.get(event)!.add(callback);
+		this.listeners.get(event)?.add(callback as EventCallback<unknown>);
 
 		return () => {
-			this.listeners.get(event)?.delete(callback);
+			this.listeners.get(event)?.delete(callback as EventCallback<unknown>);
 		};
 	}
 
 	private emit(event: string, data: any) {
-		this.listeners.get(event)?.forEach((callback) => callback(data));
-		this.listeners.get("*")?.forEach((callback) => callback({ event, data }));
+		this.listeners.get(event)?.forEach((callback) => {
+			callback(data);
+		});
+		this.listeners.get("*")?.forEach((callback) => {
+			callback({ event, data });
+		});
 	}
 }
 

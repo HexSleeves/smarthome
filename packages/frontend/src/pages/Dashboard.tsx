@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Wifi, Bell, Battery, Clock, Activity } from "lucide-react";
-import { deviceApi, roborockApi, ringApi } from "@/lib/api";
-import { Link } from "react-router-dom";
+import { Activity, Battery, Bell, Clock, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { deviceApi, ringApi, roborockApi } from "@/lib/api";
 import { wsClient } from "@/lib/websocket";
 
 export function DashboardPage() {
@@ -39,7 +39,7 @@ export function DashboardPage() {
 			setWsConnected(false),
 		);
 
-		const unsubRoborock = wsClient.on("roborock:status", (data) => {
+		const unsubRoborock = wsClient.on("roborock:status", (data: Record<string, unknown>) => {
 			setRealtimeEvents((prev) =>
 				[
 					{ type: "vacuum_status", ...data, timestamp: new Date() },
@@ -48,7 +48,7 @@ export function DashboardPage() {
 			);
 		});
 
-		const unsubRingMotion = wsClient.on("ring:motion", (data) => {
+		const unsubRingMotion = wsClient.on("ring:motion", (data: Record<string, unknown>) => {
 			setRealtimeEvents((prev) =>
 				[{ type: "motion", ...data, timestamp: new Date() }, ...prev].slice(
 					0,
@@ -57,7 +57,7 @@ export function DashboardPage() {
 			);
 		});
 
-		const unsubRingDing = wsClient.on("ring:ding", (data) => {
+		const unsubRingDing = wsClient.on("ring:ding", (data: Record<string, unknown>) => {
 			setRealtimeEvents((prev) =>
 				[{ type: "doorbell", ...data, timestamp: new Date() }, ...prev].slice(
 					0,

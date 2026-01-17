@@ -87,7 +87,7 @@ function DoorbellDevice({
 
 	// Listen for real-time events
 	useEffect(() => {
-		const unsubMotion = wsClient.on("ring:motion", (data) => {
+		const unsubMotion = wsClient.on("ring:motion", (data: Record<string, unknown>) => {
 			if (data.deviceId === device.id) {
 				setNotifications((prev) =>
 					[{ type: "motion", time: new Date(), ...data }, ...prev].slice(0, 5),
@@ -95,7 +95,7 @@ function DoorbellDevice({
 			}
 		});
 
-		const unsubDing = wsClient.on("ring:ding", (data) => {
+		const unsubDing = wsClient.on("ring:ding", (data: Record<string, unknown>) => {
 			if (data.deviceId === device.id) {
 				setNotifications((prev) =>
 					[{ type: "ding", time: new Date(), ...data }, ...prev].slice(0, 5),

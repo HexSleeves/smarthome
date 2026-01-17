@@ -1,16 +1,16 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	Wifi,
 	Bell,
 	CheckCircle,
-	XCircle,
-	Loader2,
 	Eye,
 	EyeOff,
+	Loader2,
 	Shield,
+	Wifi,
+	XCircle,
 } from "lucide-react";
-import { roborockApi, ringApi } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { ringApi, roborockApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 
 export function SettingsPage() {

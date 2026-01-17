@@ -1,10 +1,10 @@
 import { CheckCircle, Eye, EyeOff, Loader2, Wifi, XCircle } from "lucide-react"
 import { useState } from "react"
+import { useForm } from "@tanstack/react-form"
 import { useRoborockStatus, useRoborockAuth } from "@/hooks"
+import { FieldError } from "@/components/ui"
 
 export function RoborockSettings() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
 
@@ -18,17 +18,21 @@ export function RoborockSettings() {
     isDisconnecting,
   } = useRoborockAuth()
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    try {
-      await authenticate(email, password)
-      setEmail("")
-      setPassword("")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed")
-    }
-  }
+  const form = useForm({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+    onSubmit: async ({ value }) => {
+      setError("")
+      try {
+        await authenticate(value.email, value.password)
+        form.reset()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Authentication failed")
+      }
+    },
+  })
 
   const handleConnect = async () => {
     setError("")
@@ -93,7 +97,14 @@ export function RoborockSettings() {
           </button>
         </div>
       ) : (
-        <form onSubmit={handleAuth} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            form.handleSubmit()
+          }}
+          className="space-y-4"
+        >
           <p className="text-gray-600 dark:text-gray-400">
             Enter your Roborock account credentials.
           </p>
@@ -104,46 +115,81 @@ export function RoborockSettings() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input w-full"
-              placeholder="your@email.com"
-              required
-            />
-          </div>
+          <form.Field
+            name="email"
+            validators={{
+              onChange: ({ value }) =>
+                !value ? "Email is required" :
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "Invalid email format" : undefined,
+            }}
+            children={(field) => (
+              <div>
+                <label htmlFor={field.name} className="block text-sm font-medium mb-1">
+                  Email
+                </label>
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type="email"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="input w-full"
+                  placeholder="your@email.com"
+                  required
+                />
+                <FieldError field={field} />
+              </div>
+            )}
+          />
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input w-full pr-10"
-                placeholder="••••••••"
-                required
-              />
+          <form.Field
+            name="password"
+            validators={{
+              onChange: ({ value }) => (!value ? "Password is required" : undefined),
+            }}
+            children={(field) => (
+              <div>
+                <label htmlFor={field.name} className="block text-sm font-medium mb-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id={field.name}
+                    name={field.name}
+                    type={showPassword ? "text" : "password"}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="input w-full pr-10"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                <FieldError field={field} />
+              </div>
+            )}
+          />
+
+          <form.Subscribe
+            selector={(state) => [state.canSubmit, state.isSubmitting]}
+            children={([canSubmit]) => (
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                type="submit"
+                disabled={!canSubmit || isAuthenticating}
+                className="btn btn-primary"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {isAuthenticating ? "Connecting..." : "Connect Roborock"}
               </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isAuthenticating}
-            className="btn btn-primary"
-          >
-            {isAuthenticating ? "Connecting..." : "Connect Roborock"}
-          </button>
+            )}
+          />
         </form>
       )}
     </div>

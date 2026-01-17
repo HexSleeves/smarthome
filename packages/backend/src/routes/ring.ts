@@ -93,10 +93,10 @@ export async function ringRoutes(fastify: FastifyInstance) {
       const result = await ringService.submitTwoFactorCode(user.id, body.code);
       
       if (!result.success) {
-        // Check if it's an invalid code (should retry)
-        if (result.error?.includes('Invalid') || result.error?.includes('Verification')) {
+        // If still requires 2FA, it means the code was invalid - allow retry
+        if (result.requiresTwoFactor) {
           return reply.status(400).send({ 
-            error: result.error,
+            error: result.prompt || result.error || 'Invalid code. Please try again.',
             canRetry: true 
           });
         }

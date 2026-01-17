@@ -1,7 +1,7 @@
-import { RingApi, RingCamera, RingDevice } from 'ring-client-api';
+import { RingApi, RingCamera } from 'ring-client-api';
 import { decrypt, encrypt } from '../lib/crypto.js';
 import { saveCredentials, getCredentials, createDevice, deviceQueries, createEvent } from '../db/queries.js';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || 'dev-secret-change-in-production';
 
@@ -29,10 +29,10 @@ interface Pending2FASession {
 }
 
 class RingService extends EventEmitter {
-  private apiInstances: Map<string, RingApi> = new Map();
-  private cameras: Map<string, RingCamera> = new Map();
-  private deviceStates: Map<string, RingDeviceState> = new Map();
-  private pending2FA: Map<string, Pending2FASession> = new Map();
+  private readonly apiInstances: Map<string, RingApi> = new Map();
+  private readonly cameras: Map<string, RingCamera> = new Map();
+  private readonly deviceStates: Map<string, RingDeviceState> = new Map();
+  private readonly pending2FA: Map<string, Pending2FASession> = new Map();
 
   async authenticate(userId: string, email: string, password: string, twoFactorCode?: string): Promise<{ success: boolean; requiresTwoFactor?: boolean; prompt?: string; error?: string }> {
     try {
@@ -90,24 +90,39 @@ class RingService extends EventEmitter {
       return { success: true };
     } catch (error: any) {
       const errorMsg = error.message || '';
+      console.log('Ring auth error message:', errorMsg);
 
-      // Check if 2FA is required
-      if (errorMsg.includes('2-factor') || errorMsg.includes('2fa') || errorMsg.includes('Verification Code')) {
-        // Store credentials for when user provides 2FA code
-        this.pending2FA.set(userId, {
-          email,
-          password,
-          timestamp: Date.now(),
-        });
+      // Check if it's an invalid 2FA code (status 400 with "Verification Code" error)
+      if (errorMsg.startsWith('Verification Code') || errorMsg.includes('Invalid 2fa code')) {
+        // Don't overwrite pending session - just return error for retry
+        console.log('Ring 2FA code invalid, allowing retry');
+        return { 
+          success: false, 
+          requiresTwoFactor: true, 
+          prompt: 'Invalid code. Please check and try again.',
+          error: 'Invalid verification code'
+        };
+      }
 
-        // Extract the prompt message if available
-        let prompt = 'Please enter the 2FA code sent to your phone.';
-        if (errorMsg.includes('Invalid')) {
-          prompt = 'Invalid code. Please try again.';
+      // Check if 2FA is required (initial request, status 412)
+      if (errorMsg.includes('2-factor') || errorMsg.includes('2fa')) {
+        // Only store credentials if this is the initial 2FA trigger (no code was provided)
+        if (!twoFactorCode) {
+          this.pending2FA.set(userId, {
+            email: authEmail,
+            password: authPassword,
+            timestamp: Date.now(),
+          });
+          console.log('Ring 2FA required, storing pending session');
+        } else {
+          console.log('Ring 2FA still required after code submission - code may be wrong');
         }
 
-        console.log('Ring 2FA required, storing pending session');
-        return { success: false, requiresTwoFactor: true, prompt };
+        return { 
+          success: false, 
+          requiresTwoFactor: true, 
+          prompt: 'Please enter the 2FA code sent to your phone.'
+        };
       }
 
       console.error('Ring auth error:', error);
@@ -116,7 +131,7 @@ class RingService extends EventEmitter {
   }
 
   // New method: submit just the 2FA code using stored credentials
-  async submitTwoFactorCode(userId: string, twoFactorCode: string): Promise<{ success: boolean; error?: string }> {
+  async submitTwoFactorCode(userId: string, twoFactorCode: string): Promise<{ success: boolean; requiresTwoFactor?: boolean; prompt?: string; error?: string }> {
     const pending = this.pending2FA.get(userId);
 
     if (!pending) {

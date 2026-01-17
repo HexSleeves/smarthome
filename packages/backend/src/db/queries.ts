@@ -229,3 +229,10 @@ export function getCredentials(
 ): DeviceCredential | undefined {
 	return credentialQueries.findByProvider.get(userId, provider);
 }
+
+export function hasCredentials(
+	userId: string,
+	provider: "roborock" | "ring",
+): boolean {
+	return !!credentialQueries.findByProvider.get(userId, provider);
+}

@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth";
-import { Layout } from "@/components/Layout";
+import { Layout } from "@/components/layout/AppShell";
 import { LoginPage } from "@/pages/Login";
 import { DashboardPage } from "@/pages/Dashboard";
 import { VacuumPage } from "@/pages/Vacuum";

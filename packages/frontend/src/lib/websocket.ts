@@ -65,7 +65,7 @@ class WebSocketClient {
 		this.reconnectTimer = globalThis.setTimeout(() => {
 			this.reconnectTimer = null;
 			this.connect();
-		}, 5000);
+		}, 5000) as unknown as number;
 	}
 
 	send(type: string, data: Record<string, unknown> = {}) {

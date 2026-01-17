@@ -6,10 +6,14 @@
 		"esModuleInterop": true,
 		"strict": true,
 		"outDir": "dist",
-		"rootDir": "src",
 		"skipLibCheck": true,
-		"resolveJsonModule": true
+		"resolveJsonModule": true,
+		"noEmit": true,
+		"paths": {
+			"@smarthome/shared": ["../shared/src/index.ts"],
+			"@smarthome/shared/*": ["../shared/src/*"]
+		}
 	},
-	"include": ["src/**/*"],
+	"include": ["src/**/*", "../shared/src/**/*"],
 	"exclude": ["node_modules"]
 }

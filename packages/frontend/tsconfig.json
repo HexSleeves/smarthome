@@ -17,7 +17,9 @@
 		"noFallthroughCasesInSwitch": true,
 		"baseUrl": ".",
 		"paths": {
-			"@/*": ["src/*"]
+			"@/*": ["src/*"],
+			"@smarthome/shared": ["../shared/src/index.ts"],
+			"@smarthome/shared/*": ["../shared/src/*"]
 		}
 	},
 	"include": ["src"]

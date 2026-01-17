@@ -17,6 +17,7 @@ import { deviceRoutes } from "./routes/devices.js";
 import { ringRoutes } from "./routes/ring.js";
 import { roborockRoutes } from "./routes/roborock.js";
 import { websocketRoutes } from "./routes/websocket.js";
+import { registerTRPC } from "./trpc/fastify-adapter.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -55,12 +56,15 @@ async function main() {
 	// Add auth decorator
 	fastify.decorate("authenticate", authMiddleware);
 
-	// API routes
+	// API routes (REST - will be deprecated)
 	await fastify.register(authRoutes, { prefix: "/api/auth" });
 	await fastify.register(deviceRoutes, { prefix: "/api/devices" });
 	await fastify.register(roborockRoutes, { prefix: "/api/roborock" });
 	await fastify.register(ringRoutes, { prefix: "/api/ring" });
 	await fastify.register(websocketRoutes, { prefix: "/api/ws" });
+
+	// tRPC routes (new)
+	await registerTRPC(fastify);
 
 	// Health check
 	fastify.get("/api/health", async () => {

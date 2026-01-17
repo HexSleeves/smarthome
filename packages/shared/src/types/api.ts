@@ -1,5 +1,4 @@
 import type { Device, DeviceEvent, RingDeviceState, RingEvent, RoborockDeviceState, RoborockCleanHistory } from "./device"
-import type { User } from "./user"
 
 // API response types
 export type DeviceListResponse = {

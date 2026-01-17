@@ -1,0 +1,301 @@
+import { RingApi, RingCamera, RingDevice } from 'ring-client-api';
+import { decrypt, encrypt } from '../lib/crypto.js';
+import { saveCredentials, getCredentials, createDevice, deviceQueries, createEvent } from '../db/queries.js';
+import { EventEmitter } from 'events';
+
+const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || 'dev-secret-change-in-production';
+
+interface RingCredentials {
+  refreshToken: string;
+}
+
+interface RingDeviceState {
+  id: string;
+  name: string;
+  type: 'doorbell' | 'camera' | 'chime';
+  status: 'online' | 'offline';
+  battery: number | null;
+  hasLight: boolean;
+  hasSiren: boolean;
+  lastMotion: string | null;
+  lastDing: string | null;
+}
+
+class RingService extends EventEmitter {
+  private apiInstances: Map<string, RingApi> = new Map();
+  private cameras: Map<string, RingCamera> = new Map();
+  private deviceStates: Map<string, RingDeviceState> = new Map();
+
+  async authenticate(userId: string, email: string, password: string, twoFactorCode?: string): Promise<{ success: boolean; requiresTwoFactor?: boolean; error?: string }> {
+    try {
+      const api = new RingApi({
+        email,
+        password,
+        ...(twoFactorCode && { twoFactorAuthCode: twoFactorCode }),
+      });
+
+      // This will trigger auth and get refresh token
+      const locations = await api.getLocations();
+      
+      if (locations.length === 0) {
+        return { success: false, error: 'No Ring locations found' };
+      }
+
+      // Get the refresh token from the API
+      const refreshToken = api.restClient.refreshToken;
+      
+      if (refreshToken) {
+        // Save encrypted credentials
+        const encrypted = encrypt(JSON.stringify({ refreshToken }), ENCRYPTION_SECRET);
+        saveCredentials(userId, 'ring', encrypted);
+        
+        // Store API instance
+        this.apiInstances.set(userId, api);
+        
+        // Discover devices
+        await this.discoverDevices(userId, api);
+        
+        // Set up event listeners
+        this.setupEventListeners(userId, api);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      if (error.message?.includes('two factor')) {
+        return { success: false, requiresTwoFactor: true };
+      }
+      console.error('Ring auth error:', error);
+      return { success: false, error: error.message || 'Authentication failed' };
+    }
+  }
+
+  async connectWithStoredCredentials(userId: string): Promise<boolean> {
+    try {
+      const stored = getCredentials(userId, 'ring');
+      if (!stored) return false;
+
+      const { refreshToken } = JSON.parse(decrypt(stored.credentials_encrypted, ENCRYPTION_SECRET)) as RingCredentials;
+      
+      const api = new RingApi({ refreshToken });
+      
+      // Verify connection works
+      await api.getLocations();
+      
+      this.apiInstances.set(userId, api);
+      await this.discoverDevices(userId, api);
+      this.setupEventListeners(userId, api);
+      
+      // Update stored token if it changed
+      const newToken = api.restClient.refreshToken;
+      if (newToken && newToken !== refreshToken) {
+        const encrypted = encrypt(JSON.stringify({ refreshToken: newToken }), ENCRYPTION_SECRET);
+        saveCredentials(userId, 'ring', encrypted);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Ring reconnect error:', error);
+      return false;
+    }
+  }
+
+  private async discoverDevices(userId: string, api: RingApi): Promise<void> {
+    const locations = await api.getLocations();
+    
+    for (const location of locations) {
+      const cameras = location.cameras;
+      
+      for (const camera of cameras) {
+        const cameraKey = `${userId}:${camera.id}`;
+        this.cameras.set(cameraKey, camera);
+        
+        // Check if device exists in DB
+        const existing = deviceQueries.findByType.all(userId, 'ring')
+          .find(d => d.device_id === String(camera.id));
+        
+        if (!existing) {
+          createDevice(userId, 'ring', camera.name, String(camera.id), {
+            model: camera.model,
+            deviceType: camera.deviceType,
+          });
+        }
+
+        // Track state
+        const state: RingDeviceState = {
+          id: String(camera.id),
+          name: camera.name,
+          type: camera.isDoorbot ? 'doorbell' : 'camera',
+          status: 'online',
+          battery: camera.batteryLevel,
+          hasLight: camera.hasLight,
+          hasSiren: camera.hasSiren,
+          lastMotion: null,
+          lastDing: null,
+        };
+        this.deviceStates.set(cameraKey, state);
+      }
+    }
+  }
+
+  private setupEventListeners(userId: string, api: RingApi): void {
+    api.onRefreshTokenUpdated.subscribe(({ newRefreshToken }) => {
+      const encrypted = encrypt(JSON.stringify({ refreshToken: newRefreshToken }), ENCRYPTION_SECRET);
+      saveCredentials(userId, 'ring', encrypted);
+    });
+  }
+
+  async getDevices(userId: string): Promise<RingDeviceState[]> {
+    const states: RingDeviceState[] = [];
+    
+    for (const [key, state] of this.deviceStates) {
+      if (key.startsWith(`${userId}:`)) {
+        states.push(state);
+      }
+    }
+    
+    return states;
+  }
+
+  async getSnapshot(userId: string, deviceId: string): Promise<Buffer | null> {
+    const camera = this.cameras.get(`${userId}:${deviceId}`);
+    if (!camera) return null;
+    
+    try {
+      return await camera.getSnapshot();
+    } catch (error) {
+      console.error('Failed to get snapshot:', error);
+      return null;
+    }
+  }
+
+  async getLiveStreamUrl(userId: string, deviceId: string): Promise<string | null> {
+    const camera = this.cameras.get(`${userId}:${deviceId}`);
+    if (!camera) return null;
+    
+    try {
+      // Ring uses WebRTC/SIP for live streaming
+      // For browser compatibility, we'd need to set up a media server
+      // For now, return snapshot URL as fallback
+      return `/api/ring/devices/${deviceId}/snapshot`;
+    } catch (error) {
+      console.error('Failed to get live stream:', error);
+      return null;
+    }
+  }
+
+  async getHistory(userId: string, deviceId: string, limit = 20): Promise<any[]> {
+    const camera = this.cameras.get(`${userId}:${deviceId}`);
+    if (!camera) return [];
+    
+    try {
+      const events = await camera.getEvents({ limit });
+      return events.events || [];
+    } catch (error) {
+      console.error('Failed to get history:', error);
+      return [];
+    }
+  }
+
+  async toggleLight(userId: string, deviceId: string, on: boolean): Promise<boolean> {
+    const camera = this.cameras.get(`${userId}:${deviceId}`);
+    if (!camera || !camera.hasLight) return false;
+    
+    try {
+      await camera.setLight(on);
+      return true;
+    } catch (error) {
+      console.error('Failed to toggle light:', error);
+      return false;
+    }
+  }
+
+  async triggerSiren(userId: string, deviceId: string): Promise<boolean> {
+    const camera = this.cameras.get(`${userId}:${deviceId}`);
+    if (!camera || !camera.hasSiren) return false;
+    
+    try {
+      await camera.setSiren(true);
+      setTimeout(() => camera.setSiren(false), 5000); // Auto-off after 5s
+      return true;
+    } catch (error) {
+      console.error('Failed to trigger siren:', error);
+      return false;
+    }
+  }
+
+  subscribeToEvents(userId: string, callback: (event: any) => void): () => void {
+    const unsubscribers: (() => void)[] = [];
+    
+    for (const [key, camera] of this.cameras) {
+      if (key.startsWith(`${userId}:`)) {
+        // Motion events
+        const motionSub = camera.onMotionDetected.subscribe((motion) => {
+          if (motion) {
+            const event = {
+              type: 'motion',
+              deviceId: camera.id,
+              deviceName: camera.name,
+              timestamp: new Date().toISOString(),
+            };
+            
+            // Update state
+            const state = this.deviceStates.get(key);
+            if (state) state.lastMotion = event.timestamp;
+            
+            // Store event
+            const device = deviceQueries.findByType.all(userId, 'ring')
+              .find(d => d.device_id === String(camera.id));
+            if (device) createEvent(device.id, 'motion', event);
+            
+            callback(event);
+          }
+        });
+        unsubscribers.push(() => motionSub.unsubscribe());
+        
+        // Doorbell events
+        if (camera.isDoorbot) {
+          const dingSub = camera.onDoorbellPressed.subscribe((ding) => {
+            if (ding) {
+              const event = {
+                type: 'ding',
+                deviceId: camera.id,
+                deviceName: camera.name,
+                timestamp: new Date().toISOString(),
+              };
+              
+              const state = this.deviceStates.get(key);
+              if (state) state.lastDing = event.timestamp;
+              
+              const device = deviceQueries.findByType.all(userId, 'ring')
+                .find(d => d.device_id === String(camera.id));
+              if (device) createEvent(device.id, 'ding', event);
+              
+              callback(event);
+            }
+          });
+          unsubscribers.push(() => dingSub.unsubscribe());
+        }
+      }
+    }
+    
+    return () => unsubscribers.forEach(unsub => unsub());
+  }
+
+  isConnected(userId: string): boolean {
+    return this.apiInstances.has(userId);
+  }
+
+  disconnect(userId: string): void {
+    this.apiInstances.delete(userId);
+    
+    // Clean up cameras for this user
+    for (const key of this.cameras.keys()) {
+      if (key.startsWith(`${userId}:`)) {
+        this.cameras.delete(key);
+        this.deviceStates.delete(key);
+      }
+    }
+  }
+}
+
+export const ringService = new RingService();

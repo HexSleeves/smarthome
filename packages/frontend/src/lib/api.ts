@@ -129,9 +129,18 @@ export const roborockApi = {
 
 // Ring endpoints
 export const ringApi = {
-  status: () => api<{ connected: boolean; hasCredentials: boolean }>('/ring/status'),
+  status: () => api<{ connected: boolean; hasCredentials: boolean; pending2FA: boolean }>('/ring/status'),
   auth: (email: string, password: string, twoFactorCode?: string) =>
-    api('/ring/auth', { method: 'POST', body: JSON.stringify({ email, password, twoFactorCode }) }),
+    api<{ success: boolean; requiresTwoFactor?: boolean; prompt?: string }>('/ring/auth', { 
+      method: 'POST', 
+      body: JSON.stringify({ email, password, twoFactorCode }) 
+    }),
+  submit2FA: (code: string) =>
+    api<{ success: boolean; canRetry?: boolean }>('/ring/auth/2fa', { 
+      method: 'POST', 
+      body: JSON.stringify({ code }) 
+    }),
+  cancel2FA: () => api('/ring/auth/2fa/cancel', { method: 'POST' }),
   connect: () => api('/ring/connect', { method: 'POST' }),
   disconnect: () => api('/ring/disconnect', { method: 'POST' }),
   devices: () => api<{ devices: any[] }>('/ring/devices'),

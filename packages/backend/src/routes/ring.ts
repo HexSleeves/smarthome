@@ -5,9 +5,13 @@ import { ringService } from '../services/ring.js';
 import { credentialQueries } from '../db/queries.js';
 
 const authSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+  email: z.string().email().optional(),
+  password: z.string().optional(),
   twoFactorCode: z.string().optional(),
+});
+
+const twoFactorSchema = z.object({
+  code: z.string().min(4).max(10),
 });
 
 export async function ringRoutes(fastify: FastifyInstance) {
@@ -19,16 +23,33 @@ export async function ringRoutes(fastify: FastifyInstance) {
     const user = request.user as AuthUser;
     const connected = ringService.isConnected(user.id);
     const hasCredentials = !!credentialQueries.findByProvider.get(user.id, 'ring');
+    const pending2FA = ringService.hasPending2FA(user.id);
     
-    return { connected, hasCredentials };
+    return { connected, hasCredentials, pending2FA };
   });
 
-  // Authenticate with Ring
+  // Authenticate with Ring (initial login)
   fastify.post('/auth', async (request, reply) => {
     const user = request.user as AuthUser;
     
     try {
       const body = authSchema.parse(request.body);
+      
+      // If only twoFactorCode provided, use the 2FA submission endpoint logic
+      if (body.twoFactorCode && !body.email && !body.password) {
+        const result = await ringService.submitTwoFactorCode(user.id, body.twoFactorCode);
+        
+        if (!result.success) {
+          return reply.status(400).send({ error: result.error });
+        }
+        return { success: true };
+      }
+      
+      // Normal auth with email/password (and optionally 2FA code)
+      if (!body.email || !body.password) {
+        return reply.status(400).send({ error: 'Email and password are required' });
+      }
+      
       const result = await ringService.authenticate(
         user.id,
         body.email,
@@ -38,9 +59,10 @@ export async function ringRoutes(fastify: FastifyInstance) {
       
       if (!result.success) {
         if (result.requiresTwoFactor) {
-          return reply.status(400).send({ 
-            error: 'Two-factor authentication required',
-            requiresTwoFactor: true 
+          return reply.status(200).send({ 
+            success: false,
+            requiresTwoFactor: true,
+            prompt: result.prompt || 'Please enter the 2FA code sent to your phone.'
           });
         }
         return reply.status(400).send({ error: result.error });
@@ -53,6 +75,48 @@ export async function ringRoutes(fastify: FastifyInstance) {
       }
       return reply.status(500).send({ error: 'Authentication failed' });
     }
+  });
+
+  // Submit 2FA code (after initial auth triggered SMS)
+  fastify.post('/auth/2fa', async (request, reply) => {
+    const user = request.user as AuthUser;
+    
+    try {
+      const body = twoFactorSchema.parse(request.body);
+      
+      if (!ringService.hasPending2FA(user.id)) {
+        return reply.status(400).send({ 
+          error: 'No pending authentication. Please enter email and password first.' 
+        });
+      }
+      
+      const result = await ringService.submitTwoFactorCode(user.id, body.code);
+      
+      if (!result.success) {
+        // Check if it's an invalid code (should retry)
+        if (result.error?.includes('Invalid') || result.error?.includes('Verification')) {
+          return reply.status(400).send({ 
+            error: result.error,
+            canRetry: true 
+          });
+        }
+        return reply.status(400).send({ error: result.error });
+      }
+      
+      return { success: true };
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({ error: 'Invalid code format' });
+      }
+      return reply.status(500).send({ error: 'Verification failed' });
+    }
+  });
+
+  // Cancel pending 2FA
+  fastify.post('/auth/2fa/cancel', async (request) => {
+    const user = request.user as AuthUser;
+    ringService.cancelPending2FA(user.id);
+    return { success: true };
   });
 
   // Connect with stored credentials

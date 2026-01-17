@@ -1,9 +1,9 @@
-import { FastifyInstance } from "fastify";
-import { z } from "zod";
 import * as argon2 from "argon2";
+import type { FastifyInstance } from "fastify";
 import { v4 as uuid } from "uuid";
-import { userQueries, createUser, sessionQueries } from "../db/queries.js";
-import { AuthUser } from "../middleware/auth.js";
+import { z } from "zod";
+import { createUser, sessionQueries, userQueries } from "../db/queries.js";
+import type { AuthUser } from "../middleware/auth.js";
 
 const registerSchema = z.object({
 	email: z.string().email(),

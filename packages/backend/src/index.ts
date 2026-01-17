@@ -1,22 +1,22 @@
 import "dotenv/config";
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import jwt from "@fastify/jwt";
-import websocket from "@fastify/websocket";
-import fastifyStatic from "@fastify/static";
-import formbody from "@fastify/formbody";
 import cookie from "@fastify/cookie";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import cors from "@fastify/cors";
+import formbody from "@fastify/formbody";
+import jwt from "@fastify/jwt";
+import fastifyStatic from "@fastify/static";
+import websocket from "@fastify/websocket";
+import Fastify from "fastify";
 import { existsSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 
 import "./db/schema.js"; // Initialize database
+import { AuthUser, authMiddleware } from "./middleware/auth.js";
 import { authRoutes } from "./routes/auth.js";
 import { deviceRoutes } from "./routes/devices.js";
-import { roborockRoutes } from "./routes/roborock.js";
 import { ringRoutes } from "./routes/ring.js";
+import { roborockRoutes } from "./routes/roborock.js";
 import { websocketRoutes } from "./routes/websocket.js";
-import { authMiddleware, AuthUser } from "./middleware/auth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

@@ -1,13 +1,13 @@
-import { RingApi, RingCamera } from "ring-client-api";
-import { decrypt, encrypt } from "../lib/crypto.js";
-import {
-	saveCredentials,
-	getCredentials,
-	createDevice,
-	deviceQueries,
-	createEvent,
-} from "../db/queries.js";
 import { EventEmitter } from "node:events";
+import { RingApi, type RingCamera } from "ring-client-api";
+import {
+	createDevice,
+	createEvent,
+	deviceQueries,
+	getCredentials,
+	saveCredentials,
+} from "../db/queries.js";
+import { decrypt, encrypt } from "../lib/crypto.js";
 
 const ENCRYPTION_SECRET =
 	process.env.ENCRYPTION_SECRET || "dev-secret-change-in-production";

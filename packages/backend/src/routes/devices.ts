@@ -1,8 +1,8 @@
-import { FastifyInstance } from "fastify";
-import { deviceQueries, eventQueries, Event } from "../db/queries.js";
-import { AuthUser } from "../middleware/auth.js";
-import { roborockService } from "../services/roborock.js";
+import type { FastifyInstance } from "fastify";
+import { deviceQueries, type Event, eventQueries } from "../db/queries.js";
+import type { AuthUser } from "../middleware/auth.js";
 import { ringService } from "../services/ring.js";
+import { roborockService } from "../services/roborock.js";
 
 export async function deviceRoutes(fastify: FastifyInstance) {
 	// Require auth for all routes

@@ -1,8 +1,8 @@
-import { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { AuthUser } from "../middleware/auth.js";
-import { roborockService } from "../services/roborock.js";
 import { credentialQueries } from "../db/queries.js";
+import type { AuthUser } from "../middleware/auth.js";
+import { roborockService } from "../services/roborock.js";
 
 const authSchema = z.object({
 	email: z.string().email(),

@@ -4,8 +4,8 @@ import {
 	Battery,
 	Bell,
 	Clock,
-	Wifi,
 	type LucideIcon,
+	Wifi,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -15,8 +15,8 @@ import type {
 	Device,
 	DeviceEvent,
 	RealtimeEvent,
-	RoborockDeviceState,
 	RingDeviceState,
+	RoborockDeviceState,
 } from "@/types";
 
 export function DashboardPage() {

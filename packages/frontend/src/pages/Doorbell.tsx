@@ -12,8 +12,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ringApi } from "@/lib/api";
-import { useAuthStore } from "@/stores/auth";
 import { wsClient } from "@/lib/websocket";
+import { useAuthStore } from "@/stores/auth";
 import type { RingDeviceState, RingEvent } from "@/types";
 
 interface Notification {

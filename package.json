@@ -10,7 +10,10 @@
 		"dev:backend": "npm run dev -w @smarthome/backend",
 		"dev:frontend": "npm run dev -w @smarthome/frontend",
 		"build": "npm run build -w @smarthome/frontend && npm run build -w @smarthome/backend",
-		"start": "npm run start -w @smarthome/backend"
+		"start": "npm run start -w @smarthome/backend",
+		"format": "biome format --write ",
+		"lint": "biome lint",
+		"typecheck": "biome typecheck"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.11",

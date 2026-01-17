@@ -1,19 +1,27 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-	Bell,
-	Camera,
-	Sun,
 	AlertTriangle,
 	Battery,
-	Video,
-	RefreshCw,
-	Loader2,
+	Bell,
+	Camera,
 	Clock,
+	Loader2,
+	RefreshCw,
+	Sun,
+	Video,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { ringApi } from "@/lib/api";
-import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth";
 import { wsClient } from "@/lib/websocket";
+import type { RingDeviceState, RingEvent } from "@/types";
+
+interface Notification {
+	type: string;
+	time: Date;
+	deviceId: string;
+	deviceName?: string;
+}
 
 export function DoorbellPage() {
 	const { user } = useAuthStore();
@@ -67,7 +75,7 @@ export function DoorbellPage() {
 					</p>
 				</div>
 			) : (
-				devices.map((device: any) => (
+				devices.map((device: RingDeviceState) => (
 					<DoorbellDevice key={device.id} device={device} isAdmin={isAdmin} />
 				))
 			)}
@@ -79,29 +87,51 @@ function DoorbellDevice({
 	device,
 	isAdmin,
 }: {
-	device: any;
+	device: RingDeviceState;
 	isAdmin: boolean;
 }) {
 	const [snapshotKey, setSnapshotKey] = useState(0);
-	const [notifications, setNotifications] = useState<any[]>([]);
+	const [notifications, setNotifications] = useState<Notification[]>([]);
 
 	// Listen for real-time events
 	useEffect(() => {
-		const unsubMotion = wsClient.on("ring:motion", (data: Record<string, unknown>) => {
-			if (data.deviceId === device.id) {
-				setNotifications((prev) =>
-					[{ type: "motion", time: new Date(), ...data }, ...prev].slice(0, 5),
-				);
-			}
-		});
+		const unsubMotion = wsClient.on(
+			"ring:motion",
+			(data: Record<string, unknown>) => {
+				if (data.deviceId === device.id) {
+					setNotifications((prev) =>
+						[
+							{
+								type: "motion",
+								time: new Date(),
+								deviceId: data.deviceId as string,
+								deviceName: data.deviceName as string,
+							},
+							...prev,
+						].slice(0, 5),
+					);
+				}
+			},
+		);
 
-		const unsubDing = wsClient.on("ring:ding", (data: Record<string, unknown>) => {
-			if (data.deviceId === device.id) {
-				setNotifications((prev) =>
-					[{ type: "ding", time: new Date(), ...data }, ...prev].slice(0, 5),
-				);
-			}
-		});
+		const unsubDing = wsClient.on(
+			"ring:ding",
+			(data: Record<string, unknown>) => {
+				if (data.deviceId === device.id) {
+					setNotifications((prev) =>
+						[
+							{
+								type: "ding",
+								time: new Date(),
+								deviceId: data.deviceId as string,
+								deviceName: data.deviceName as string,
+							},
+							...prev,
+						].slice(0, 5),
+					);
+				}
+			},
+		);
 
 		return () => {
 			unsubMotion();
@@ -122,7 +152,7 @@ function DoorbellDevice({
 		mutationFn: () => ringApi.triggerSiren(device.id),
 	});
 
-	const snapshotUrl = ringApi.snapshotUrl(device.id) + `&t=${snapshotKey}`;
+	const snapshotUrl = `${ringApi.snapshotUrl(device.id)}&t=${snapshotKey}`;
 
 	return (
 		<div className="card overflow-hidden">
@@ -197,6 +227,7 @@ function DoorbellDevice({
 							onClick={() => setSnapshotKey((k) => k + 1)}
 							className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
 							title="Refresh snapshot"
+							type="button"
 						>
 							<RefreshCw className="w-5 h-5" />
 						</button>
@@ -221,6 +252,7 @@ function DoorbellDevice({
 								onClick={() => lightMutation.mutate(true)}
 								disabled={!isAdmin || lightMutation.isPending}
 								className="btn btn-secondary flex items-center gap-2"
+								type="button"
 							>
 								<Sun className="w-4 h-4" />
 								Turn Light On
@@ -231,6 +263,7 @@ function DoorbellDevice({
 								onClick={() => sirenMutation.mutate()}
 								disabled={!isAdmin || sirenMutation.isPending}
 								className="btn btn-danger flex items-center gap-2"
+								type="button"
 							>
 								<AlertTriangle className="w-4 h-4" />
 								Trigger Siren
@@ -252,9 +285,9 @@ function DoorbellDevice({
 							Recent Events
 						</h3>
 						<div className="space-y-2">
-							{historyData.history.map((event: any, i: number) => (
+							{historyData.history.map((event: RingEvent, i: number) => (
 								<div
-									key={i}
+									key={event.id || i}
 									className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50"
 								>
 									<div

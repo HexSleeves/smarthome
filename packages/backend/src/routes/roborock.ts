@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { AuthUser } from "../middleware/auth.js";
-import { roborockService, RoborockDeviceState } from "../services/roborock.js";
+import { roborockService } from "../services/roborock.js";
 import { credentialQueries } from "../db/queries.js";
 
 const authSchema = z.object({

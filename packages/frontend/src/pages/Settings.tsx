@@ -224,6 +224,7 @@ function RingSettings() {
 	const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
 	const [twoFactorPrompt, setTwoFactorPrompt] = useState("");
 	const [error, setError] = useState("");
+	const { user } = useAuthStore();
 
 	const { data: status, isLoading: statusLoading } = useQuery({
 		queryKey: ["ring-status"],
@@ -263,7 +264,7 @@ function RingSettings() {
 				queryClient.invalidateQueries({ queryKey: ["ring-devices"] });
 			}
 		},
-		onError: (err: any) => {
+		onError: (err: Error) => {
 			setError(err.message || "Authentication failed");
 		},
 	});
@@ -283,7 +284,7 @@ function RingSettings() {
 				queryClient.invalidateQueries({ queryKey: ["ring-devices"] });
 			}
 		},
-		onError: (err: any) => {
+		onError: (err: Error) => {
 			setError(err.message || "Invalid code. Please try again.");
 			setTwoFactorCode(""); // Clear for retry
 		},
@@ -302,7 +303,7 @@ function RingSettings() {
 	});
 
 	const connectMutation = useMutation({
-		mutationFn: ringApi.connect,
+		mutationFn: () => ringApi.connect(user?.id || ""),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["ring-status"] });
 			queryClient.invalidateQueries({ queryKey: ["ring-devices"] });

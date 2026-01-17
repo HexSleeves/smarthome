@@ -58,18 +58,18 @@ export async function ringRoutes(fastify: FastifyInstance) {
 					.send({ error: "Email and password are required" });
 			}
 
-			console.log('Calling ringService.authenticate...');
+			console.log("Calling ringService.authenticate...");
 			const result = await ringService.authenticate(
 				user.id,
 				body.email,
 				body.password,
 				body.twoFactorCode,
 			);
-			console.log('ringService.authenticate returned:', JSON.stringify(result));
+			console.log("ringService.authenticate returned:", JSON.stringify(result));
 
 			if (!result.success) {
 				if (result.requiresTwoFactor) {
-					console.log('Returning 2FA required response');
+					console.log("Returning 2FA required response");
 					return reply.status(200).send({
 						success: false,
 						requiresTwoFactor: true,
@@ -82,7 +82,7 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 			return { success: true };
 		} catch (error: any) {
-			console.error('Route catch block - error:', error.message || error);
+			console.error("Route catch block - error:", error.message || error);
 			if (error instanceof z.ZodError) {
 				return reply
 					.status(400)
@@ -176,46 +176,50 @@ export async function ringRoutes(fastify: FastifyInstance) {
 	});
 
 	// Get device snapshot - special handling for token in query string (for img src)
-	fastify.get("/devices/:deviceId/snapshot", {
-		// Skip the normal auth hook - we'll handle it manually
-		preHandler: async (request, reply) => {
-			// Try to get token from query string first (for img src URLs)
-			const { token } = request.query as { token?: string };
-			
-			if (token) {
-				try {
-					const decoded = fastify.jwt.verify(token) as AuthUser;
-					request.user = decoded;
-					return;
-				} catch (err) {
-					return reply.status(401).send({ error: "Invalid token" });
+	fastify.get(
+		"/devices/:deviceId/snapshot",
+		{
+			// Skip the normal auth hook - we'll handle it manually
+			preHandler: async (request, reply) => {
+				// Try to get token from query string first (for img src URLs)
+				const { token } = request.query as { token?: string };
+
+				if (token) {
+					try {
+						const decoded = fastify.jwt.verify(token) as AuthUser;
+						request.user = decoded;
+						return;
+					} catch (err) {
+						return reply.status(401).send({ error: "Invalid token" });
+					}
 				}
+
+				// Fall back to Authorization header
+				try {
+					await request.jwtVerify();
+				} catch (err) {
+					return reply.status(401).send({ error: "Unauthorized" });
+				}
+			},
+		},
+		async (request, reply) => {
+			const user = request.user as AuthUser;
+			const { deviceId } = request.params as { deviceId: string };
+
+			if (!ringService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Ring" });
 			}
-			
-			// Fall back to Authorization header
-			try {
-				await request.jwtVerify();
-			} catch (err) {
-				return reply.status(401).send({ error: "Unauthorized" });
+
+			const snapshot = await ringService.getSnapshot(user.id, deviceId);
+			if (!snapshot) {
+				return reply.status(404).send({ error: "Snapshot not available" });
 			}
-		}
-	}, async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
 
-		if (!ringService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Ring" });
-		}
-
-		const snapshot = await ringService.getSnapshot(user.id, deviceId);
-		if (!snapshot) {
-			return reply.status(404).send({ error: "Snapshot not available" });
-		}
-
-		reply.header("Content-Type", "image/jpeg");
-		reply.header("Cache-Control", "no-cache");
-		return reply.send(snapshot);
-	});
+			reply.header("Content-Type", "image/jpeg");
+			reply.header("Cache-Control", "no-cache");
+			return reply.send(snapshot);
+		},
+	);
 
 	// Get live stream URL
 	fastify.get("/devices/:deviceId/stream", async (request, reply) => {

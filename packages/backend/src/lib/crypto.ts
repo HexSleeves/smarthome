@@ -3,7 +3,7 @@ import {
 	createDecipheriv,
 	randomBytes,
 	scryptSync,
-} from "crypto";
+} from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const KEY_LENGTH = 32;

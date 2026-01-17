@@ -1,8 +1,8 @@
-import { Link, useLocation, Outlet } from "react-router-dom";
-import { Home, Wifi, Bell, Settings, LogOut, Menu, X } from "lucide-react";
-import { useState } from "react";
-import { useAuthStore } from "@/stores/auth";
 import { clsx } from "clsx";
+import { Bell, Home, LogOut, Menu, Settings, Wifi, X } from "lucide-react";
+import { useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { useAuthStore } from "@/stores/auth";
 
 const navigation = [
 	{ name: "Dashboard", href: "/", icon: Home },

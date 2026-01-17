@@ -86,7 +86,7 @@ class RingService extends EventEmitter {
 			// If we have a 2FA code, we need to call getAuth directly with the code
 			// before calling getLocations, otherwise the code won't be sent
 			if (twoFactorCode) {
-				console.log('Calling restClient.getAuth with 2FA code...');
+				console.log("Calling restClient.getAuth with 2FA code...");
 				await api.restClient.getAuth(twoFactorCode);
 			}
 

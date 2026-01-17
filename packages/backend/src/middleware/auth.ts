@@ -19,6 +19,7 @@ export async function authMiddleware(
 	try {
 		await request.jwtVerify();
 	} catch (err) {
+		console.error("Auth middleware error:", err);
 		reply.status(401).send({ error: "Unauthorized" });
 	}
 }
@@ -34,6 +35,7 @@ export async function adminMiddleware(
 			reply.status(403).send({ error: "Forbidden: Admin access required" });
 		}
 	} catch (err) {
+		console.error("Admin middleware error:", err);
 		reply.status(401).send({ error: "Unauthorized" });
 	}
 }

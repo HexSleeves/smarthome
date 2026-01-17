@@ -1,7 +1,7 @@
-import { FastifyInstance } from "fastify";
-import { WebSocket } from "@fastify/websocket";
-import { roborockService } from "../services/roborock.js";
+import type { WebSocket } from "@fastify/websocket";
+import type { FastifyInstance } from "fastify";
 import { ringService } from "../services/ring.js";
+import { roborockService } from "../services/roborock.js";
 
 interface WsClient {
 	ws: WebSocket;
@@ -68,7 +68,7 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 			ws.send(JSON.stringify({ type: "connected", userId: decoded.id }));
 
 			// Handle incoming messages
-			ws.on("message", async (data) => {
+			ws.on("message", async (data: string) => {
 				try {
 					const message = JSON.parse(data.toString());
 					await handleMessage(client, message);
@@ -86,11 +86,12 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 				}
 			});
 
-			ws.on("error", (error) => {
+			ws.on("error", (error: Error) => {
 				console.error("WebSocket error:", error);
 				clients.delete(ws);
 			});
 		} catch (error) {
+			console.error("WebSocket error:", error);
 			ws.send(JSON.stringify({ type: "error", message: "Invalid token" }));
 			ws.close();
 		}

@@ -1,6 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { z } from "zod";
-import { deviceQueries, eventQueries, Device, Event } from "../db/queries.js";
+import { deviceQueries, eventQueries, Event } from "../db/queries.js";
 import { AuthUser } from "../middleware/auth.js";
 import { roborockService } from "../services/roborock.js";
 import { ringService } from "../services/ring.js";

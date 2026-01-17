@@ -1,3 +1,14 @@
+import type {
+	AuthResponse,
+	Device,
+	DeviceEvent,
+	RingDeviceState,
+	RingEvent,
+	RoborockCleanHistory,
+	RoborockDeviceState,
+	User,
+} from "@/types";
+
 const API_BASE = "/api";
 
 let accessToken: string | null = localStorage.getItem("accessToken");
@@ -36,7 +47,7 @@ async function refreshAccessToken(): Promise<boolean> {
 			return false;
 		}
 
-		const data = await res.json();
+		const data = (await res.json()) as { accessToken: string };
 		accessToken = data.accessToken;
 		localStorage.setItem("accessToken", data.accessToken);
 		return true;
@@ -46,7 +57,7 @@ async function refreshAccessToken(): Promise<boolean> {
 	}
 }
 
-export async function api<T = any>(
+export async function api<T = unknown>(
 	endpoint: string,
 	options: RequestInit = {},
 ): Promise<T> {
@@ -74,31 +85,25 @@ export async function api<T = any>(
 
 	if (!res.ok) {
 		const error = await res.json().catch(() => ({ error: "Request failed" }));
-		throw new Error(error.error || "Request failed");
+		throw new Error((error as { error?: string }).error || "Request failed");
 	}
 
-	return res.json();
+	return res.json() as Promise<T>;
 }
 
 // Auth endpoints
 export const authApi = {
 	login: (email: string, password: string) =>
-		api<{ user: any; accessToken: string; refreshToken: string }>(
-			"/auth/login",
-			{
-				method: "POST",
-				body: JSON.stringify({ email, password }),
-			},
-		),
+		api<AuthResponse>("/auth/login", {
+			method: "POST",
+			body: JSON.stringify({ email, password }),
+		}),
 
 	register: (email: string, password: string, name?: string) =>
-		api<{ user: any; accessToken: string; refreshToken: string }>(
-			"/auth/register",
-			{
-				method: "POST",
-				body: JSON.stringify({ email, password, name }),
-			},
-		),
+		api<AuthResponse>("/auth/register", {
+			method: "POST",
+			body: JSON.stringify({ email, password, name }),
+		}),
 
 	logout: () =>
 		api("/auth/logout", {
@@ -106,18 +111,17 @@ export const authApi = {
 			body: JSON.stringify({ refreshToken }),
 		}),
 
-	me: () =>
-		api<{ id: string; email: string; name: string; role: string }>("/auth/me"),
+	me: () => api<User>("/auth/me"),
 };
 
 // Device endpoints
 export const deviceApi = {
-	list: () => api<{ devices: any[] }>("/devices"),
-	get: (id: string) => api<any>(`/devices/${id}`),
+	list: () => api<{ devices: Device[] }>("/devices"),
+	get: (id: string) => api<Device>(`/devices/${id}`),
 	events: (id: string, limit = 50) =>
-		api<{ events: any[] }>(`/devices/${id}/events?limit=${limit}`),
+		api<{ events: DeviceEvent[] }>(`/devices/${id}/events?limit=${limit}`),
 	recentEvents: (limit = 20) =>
-		api<{ events: any[] }>(`/devices/events/recent?limit=${limit}`),
+		api<{ events: DeviceEvent[] }>(`/devices/events/recent?limit=${limit}`),
 };
 
 // Roborock endpoints
@@ -131,7 +135,7 @@ export const roborockApi = {
 		}),
 	connect: () => api("/roborock/connect", { method: "POST" }),
 	disconnect: () => api("/roborock/disconnect", { method: "POST" }),
-	devices: () => api<{ devices: any[] }>("/roborock/devices"),
+	devices: () => api<{ devices: RoborockDeviceState[] }>("/roborock/devices"),
 	command: (deviceId: string, command: string) =>
 		api(`/roborock/devices/${deviceId}/command`, {
 			method: "POST",
@@ -153,7 +157,9 @@ export const roborockApi = {
 			body: JSON.stringify({ roomIds }),
 		}),
 	history: (deviceId: string) =>
-		api<{ history: any[] }>(`/roborock/devices/${deviceId}/history`),
+		api<{ history: RoborockCleanHistory[] }>(
+			`/roborock/devices/${deviceId}/history`,
+		),
 };
 
 // Ring endpoints
@@ -176,13 +182,19 @@ export const ringApi = {
 			body: JSON.stringify({ code }),
 		}),
 	cancel2FA: () => api("/ring/auth/2fa/cancel", { method: "POST" }),
-	connect: () => api("/ring/connect", { method: "POST" }),
+	connect: (userId: string) =>
+		api("/ring/connect", {
+			method: "POST",
+			body: JSON.stringify({ id: userId }),
+		}),
 	disconnect: () => api("/ring/disconnect", { method: "POST" }),
-	devices: () => api<{ devices: any[] }>("/ring/devices"),
+	devices: () => api<{ devices: RingDeviceState[] }>("/ring/devices"),
 	snapshotUrl: (deviceId: string) =>
 		`${API_BASE}/ring/devices/${deviceId}/snapshot?token=${accessToken}`,
 	history: (deviceId: string, limit = 20) =>
-		api<{ history: any[] }>(`/ring/devices/${deviceId}/history?limit=${limit}`),
+		api<{ history: RingEvent[] }>(
+			`/ring/devices/${deviceId}/history?limit=${limit}`,
+		),
 	toggleLight: (deviceId: string, on: boolean) =>
 		api(`/ring/devices/${deviceId}/light`, {
 			method: "POST",

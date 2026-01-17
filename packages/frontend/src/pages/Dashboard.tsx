@@ -1,13 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Battery, Bell, Clock, Wifi } from "lucide-react";
+import {
+	Activity,
+	Battery,
+	Bell,
+	Clock,
+	Wifi,
+	type LucideIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { deviceApi, ringApi, roborockApi } from "@/lib/api";
 import { wsClient } from "@/lib/websocket";
+import type {
+	Device,
+	DeviceEvent,
+	RealtimeEvent,
+	RoborockDeviceState,
+	RingDeviceState,
+} from "@/types";
 
 export function DashboardPage() {
 	const [wsConnected, setWsConnected] = useState(false);
-	const [realtimeEvents, setRealtimeEvents] = useState<any[]>([]);
+	const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]);
 
 	// Fetch device data
 	const { data: devicesData } = useQuery({
@@ -39,32 +53,56 @@ export function DashboardPage() {
 			setWsConnected(false),
 		);
 
-		const unsubRoborock = wsClient.on("roborock:status", (data: Record<string, unknown>) => {
-			setRealtimeEvents((prev) =>
-				[
-					{ type: "vacuum_status", ...data, timestamp: new Date() },
-					...prev,
-				].slice(0, 5),
-			);
-		});
+		const unsubRoborock = wsClient.on(
+			"roborock:status",
+			(data: Record<string, unknown>) => {
+				setRealtimeEvents((prev) =>
+					[
+						{
+							type: "vacuum_status",
+							deviceId: data.deviceId as string,
+							state: data.state as RoborockDeviceState,
+							timestamp: new Date(),
+						},
+						...prev,
+					].slice(0, 5),
+				);
+			},
+		);
 
-		const unsubRingMotion = wsClient.on("ring:motion", (data: Record<string, unknown>) => {
-			setRealtimeEvents((prev) =>
-				[{ type: "motion", ...data, timestamp: new Date() }, ...prev].slice(
-					0,
-					5,
-				),
-			);
-		});
+		const unsubRingMotion = wsClient.on(
+			"ring:motion",
+			(data: Record<string, unknown>) => {
+				setRealtimeEvents((prev) =>
+					[
+						{
+							type: "motion",
+							deviceId: data.deviceId as string,
+							deviceName: data.deviceName as string,
+							timestamp: new Date(),
+						},
+						...prev,
+					].slice(0, 5),
+				);
+			},
+		);
 
-		const unsubRingDing = wsClient.on("ring:ding", (data: Record<string, unknown>) => {
-			setRealtimeEvents((prev) =>
-				[{ type: "doorbell", ...data, timestamp: new Date() }, ...prev].slice(
-					0,
-					5,
-				),
-			);
-		});
+		const unsubRingDing = wsClient.on(
+			"ring:ding",
+			(data: Record<string, unknown>) => {
+				setRealtimeEvents((prev) =>
+					[
+						{
+							type: "doorbell",
+							deviceId: data.deviceId as string,
+							deviceName: data.deviceName as string,
+							timestamp: new Date(),
+						},
+						...prev,
+					].slice(0, 5),
+				);
+			},
+		);
 
 		return () => {
 			unsubConnected();
@@ -244,7 +282,7 @@ export function DashboardPage() {
 				<div className="card p-6">
 					<h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
 					<div className="space-y-2">
-						{eventsData.events.map((event: any) => (
+						{eventsData.events.map((event: DeviceEvent) => (
 							<div
 								key={event.id}
 								className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50"
@@ -263,19 +301,15 @@ export function DashboardPage() {
 	);
 }
 
-function StatCard({
-	title,
-	icon: Icon,
-	value,
-	status,
-	link,
-}: {
+interface StatCardProps {
 	title: string;
-	icon: any;
+	icon: LucideIcon;
 	value: string;
 	status: "success" | "warning" | "error" | "neutral";
 	link?: string;
-}) {
+}
+
+function StatCard({ title, icon: Icon, value, status, link }: StatCardProps) {
 	const statusColors = {
 		success: "text-green-600 bg-green-50 dark:bg-green-900/30",
 		warning: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/30",
@@ -303,8 +337,8 @@ function StatCard({
 	return content;
 }
 
-function VacuumCard({ vacuum }: { vacuum: any }) {
-	const state = vacuum.liveState;
+function VacuumCard({ vacuum }: { vacuum: Device }) {
+	const state = vacuum.liveState as RoborockDeviceState | undefined;
 
 	const statusColors: Record<string, string> = {
 		idle: "bg-gray-500",
@@ -337,8 +371,8 @@ function VacuumCard({ vacuum }: { vacuum: any }) {
 	);
 }
 
-function DoorbellCard({ doorbell }: { doorbell: any }) {
-	const state = doorbell.liveState;
+function DoorbellCard({ doorbell }: { doorbell: Device }) {
+	const state = doorbell.liveState as RingDeviceState | undefined;
 
 	return (
 		<div className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">

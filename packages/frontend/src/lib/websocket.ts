@@ -5,7 +5,8 @@ type EventCallback<T = Record<string, unknown>> = (data: T) => void;
 class WebSocketClient {
 	private ws: WebSocket | null = null;
 	private reconnectTimer: number | null = null;
-	private readonly listeners: Map<string, Set<EventCallback<unknown>>> = new Map();
+	private readonly listeners: Map<string, Set<EventCallback<unknown>>> =
+		new Map();
 	private isConnecting = false;
 
 	connect() {
@@ -67,7 +68,7 @@ class WebSocketClient {
 		}, 5000);
 	}
 
-	send(type: string, data: any = {}) {
+	send(type: string, data: Record<string, unknown> = {}) {
 		if (this.ws?.readyState === WebSocket.OPEN) {
 			this.ws.send(JSON.stringify({ type, ...data }));
 		}
@@ -84,7 +85,7 @@ class WebSocketClient {
 		};
 	}
 
-	private emit(event: string, data: any) {
+	private emit(event: string, data: Record<string, unknown>) {
 		this.listeners.get(event)?.forEach((callback) => {
 			callback(data);
 		});

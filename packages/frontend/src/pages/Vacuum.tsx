@@ -1,20 +1,20 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	Play,
-	Pause,
-	Square,
-	Home,
-	Volume2,
+	AlertTriangle,
 	Battery,
 	Droplets,
-	Wind,
-	AlertTriangle,
+	Home,
 	Loader2,
+	Pause,
+	Play,
+	Square,
+	Volume2,
+	Wind,
 } from "lucide-react";
-import { roborockApi } from "@/lib/api";
-
-import { useAuthStore } from "@/stores/auth";
 import { clsx } from "clsx";
+import { roborockApi } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
+import type { RoborockDeviceState } from "@/types";
 
 export function VacuumPage() {
 	const { user } = useAuthStore();
@@ -68,7 +68,7 @@ export function VacuumPage() {
 					</p>
 				</div>
 			) : (
-				devices.map((device: any) => (
+				devices.map((device: RoborockDeviceState) => (
 					<VacuumDevice key={device.id} device={device} isAdmin={isAdmin} />
 				))
 			)}
@@ -76,7 +76,13 @@ export function VacuumPage() {
 	);
 }
 
-function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
+function VacuumDevice({
+	device,
+	isAdmin,
+}: {
+	device: RoborockDeviceState;
+	isAdmin: boolean;
+}) {
 	const queryClient = useQueryClient();
 
 	const commandMutation = useMutation({
@@ -151,7 +157,9 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 							<div
 								className={`w-3 h-3 rounded-full ${statusColors[device.status]}`}
 							/>
-							<span className="font-medium">{statusText[device.status]}</span>
+							<span className="font-medium">
+								{statusText[device.status]}
+							</span>
 						</div>
 						<div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
 							<Battery className="w-4 h-4" />
@@ -205,6 +213,7 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 							onClick={() => commandMutation.mutate("start")}
 							disabled={!isAdmin || commandMutation.isPending}
 							className="btn btn-primary flex items-center gap-2"
+							type="button"
 						>
 							<Play className="w-4 h-4" />
 							Start
@@ -213,6 +222,7 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 							onClick={() => commandMutation.mutate("pause")}
 							disabled={!isAdmin || commandMutation.isPending}
 							className="btn btn-secondary flex items-center gap-2"
+							type="button"
 						>
 							<Pause className="w-4 h-4" />
 							Pause
@@ -221,6 +231,7 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 							onClick={() => commandMutation.mutate("stop")}
 							disabled={!isAdmin || commandMutation.isPending}
 							className="btn btn-secondary flex items-center gap-2"
+							type="button"
 						>
 							<Square className="w-4 h-4" />
 							Stop
@@ -229,6 +240,7 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 							onClick={() => commandMutation.mutate("home")}
 							disabled={!isAdmin || commandMutation.isPending}
 							className="btn btn-secondary flex items-center gap-2"
+							type="button"
 						>
 							<Home className="w-4 h-4" />
 							Dock
@@ -237,6 +249,7 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 							onClick={() => commandMutation.mutate("find")}
 							disabled={!isAdmin || commandMutation.isPending}
 							className="btn btn-secondary flex items-center gap-2"
+							type="button"
 						>
 							<Volume2 className="w-4 h-4" />
 							Find
@@ -267,6 +280,7 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 										? "border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
 										: "border-gray-200 dark:border-gray-600 hover:border-primary-300",
 								)}
+								type="button"
 							>
 								{speed.icon} {speed.label}
 							</button>
@@ -292,6 +306,7 @@ function VacuumDevice({ device, isAdmin }: { device: any; isAdmin: boolean }) {
 										? "border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
 										: "border-gray-200 dark:border-gray-600 hover:border-primary-300",
 								)}
+								type="button"
 							>
 								{level.label}
 							</button>

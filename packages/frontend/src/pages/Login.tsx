@@ -24,8 +24,8 @@ export function LoginPage() {
 			} else {
 				await login(email, password);
 			}
-		} catch (err: any) {
-			setError(err.message || "Authentication failed");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Authentication failed");
 		} finally {
 			setLoading(false);
 		}

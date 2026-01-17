@@ -1,197 +1,226 @@
-import { FastifyInstance } from 'fastify';
-import { z } from 'zod';
-import * as argon2 from 'argon2';
-import { v4 as uuid } from 'uuid';
-import { userQueries, createUser, sessionQueries } from '../db/queries.js';
-import { AuthUser } from '../middleware/auth.js';
+import { FastifyInstance } from "fastify";
+import { z } from "zod";
+import * as argon2 from "argon2";
+import { v4 as uuid } from "uuid";
+import { userQueries, createUser, sessionQueries } from "../db/queries.js";
+import { AuthUser } from "../middleware/auth.js";
 
 const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  name: z.string().optional(),
+	email: z.string().email(),
+	password: z.string().min(8),
+	name: z.string().optional(),
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+	email: z.string().email(),
+	password: z.string(),
 });
 
 export async function authRoutes(fastify: FastifyInstance) {
-  // Register
-  fastify.post('/register', async (request, reply) => {
-    try {
-      const body = registerSchema.parse(request.body);
-      
-      // Check if user exists
-      const existing = userQueries.findByEmail.get(body.email);
-      if (existing) {
-        return reply.status(400).send({ error: 'Email already registered' });
-      }
+	// Register
+	fastify.post("/register", async (request, reply) => {
+		try {
+			const body = registerSchema.parse(request.body);
 
-      // Hash password
-      const passwordHash = await argon2.hash(body.password);
-      
-      // First user becomes admin
-      const users = userQueries.list.all();
-      const role = users.length === 0 ? 'admin' : 'viewer';
-      
-      // Create user
-      const user = createUser(body.email, passwordHash, body.name, role);
-      
-      // Generate tokens
-      const accessToken = fastify.jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
-        { expiresIn: '15m' }
-      );
-      
-      const refreshToken = uuid();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      
-      sessionQueries.create.run(
-        uuid(),
-        user.id,
-        refreshToken,
-        request.headers['user-agent'] || null,
-        request.ip,
-        expiresAt
-      );
+			// Check if user exists
+			const existing = userQueries.findByEmail.get(body.email);
+			if (existing) {
+				return reply.status(400).send({ error: "Email already registered" });
+			}
 
-      return {
-        user: { id: user.id, email: user.email, name: user.name, role: user.role },
-        accessToken,
-        refreshToken,
-      };
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return reply.status(400).send({ error: 'Validation failed', details: error.errors });
-      }
-      console.error('Register error:', error);
-      return reply.status(500).send({ error: 'Registration failed' });
-    }
-  });
+			// Hash password
+			const passwordHash = await argon2.hash(body.password);
 
-  // Login
-  fastify.post('/login', async (request, reply) => {
-    try {
-      const body = loginSchema.parse(request.body);
-      
-      const user = userQueries.findByEmail.get(body.email);
-      if (!user) {
-        return reply.status(401).send({ error: 'Invalid credentials' });
-      }
+			// First user becomes admin
+			const users = userQueries.list.all();
+			const role = users.length === 0 ? "admin" : "viewer";
 
-      const validPassword = await argon2.verify(user.password_hash, body.password);
-      if (!validPassword) {
-        return reply.status(401).send({ error: 'Invalid credentials' });
-      }
+			// Create user
+			const user = createUser(body.email, passwordHash, body.name, role);
 
-      // Generate tokens
-      const accessToken = fastify.jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
-        { expiresIn: '15m' }
-      );
-      
-      const refreshToken = uuid();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      
-      sessionQueries.create.run(
-        uuid(),
-        user.id,
-        refreshToken,
-        request.headers['user-agent'] || null,
-        request.ip,
-        expiresAt
-      );
+			// Generate tokens
+			const accessToken = fastify.jwt.sign(
+				{ id: user.id, email: user.email, role: user.role },
+				{ expiresIn: "15m" },
+			);
 
-      return {
-        user: { id: user.id, email: user.email, name: user.name, role: user.role },
-        accessToken,
-        refreshToken,
-      };
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return reply.status(400).send({ error: 'Validation failed', details: error.errors });
-      }
-      console.error('Login error:', error);
-      return reply.status(500).send({ error: 'Login failed' });
-    }
-  });
+			const refreshToken = uuid();
+			const expiresAt = new Date(
+				Date.now() + 7 * 24 * 60 * 60 * 1000,
+			).toISOString();
 
-  // Refresh token
-  fastify.post('/refresh', async (request, reply) => {
-    try {
-      const { refreshToken } = request.body as { refreshToken: string };
-      
-      if (!refreshToken) {
-        return reply.status(400).send({ error: 'Refresh token required' });
-      }
+			sessionQueries.create.run(
+				uuid(),
+				user.id,
+				refreshToken,
+				request.headers["user-agent"] || null,
+				request.ip,
+				expiresAt,
+			);
 
-      const session = sessionQueries.findByToken.get(refreshToken);
-      if (!session) {
-        return reply.status(401).send({ error: 'Invalid refresh token' });
-      }
+			return {
+				user: {
+					id: user.id,
+					email: user.email,
+					name: user.name,
+					role: user.role,
+				},
+				accessToken,
+				refreshToken,
+			};
+		} catch (error: any) {
+			if (error instanceof z.ZodError) {
+				return reply
+					.status(400)
+					.send({ error: "Validation failed", details: error.errors });
+			}
+			console.error("Register error:", error);
+			return reply.status(500).send({ error: "Registration failed" });
+		}
+	});
 
-      if (new Date(session.expires_at) < new Date()) {
-        sessionQueries.delete.run(session.id);
-        return reply.status(401).send({ error: 'Refresh token expired' });
-      }
+	// Login
+	fastify.post("/login", async (request, reply) => {
+		try {
+			const body = loginSchema.parse(request.body);
 
-      const user = userQueries.findById.get(session.user_id);
-      if (!user) {
-        return reply.status(401).send({ error: 'User not found' });
-      }
+			const user = userQueries.findByEmail.get(body.email);
+			if (!user) {
+				return reply.status(401).send({ error: "Invalid credentials" });
+			}
 
-      // Generate new access token
-      const accessToken = fastify.jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
-        { expiresIn: '15m' }
-      );
+			const validPassword = await argon2.verify(
+				user.password_hash,
+				body.password,
+			);
+			if (!validPassword) {
+				return reply.status(401).send({ error: "Invalid credentials" });
+			}
 
-      return { accessToken };
-    } catch (error) {
-      console.error('Refresh error:', error);
-      return reply.status(500).send({ error: 'Token refresh failed' });
-    }
-  });
+			// Generate tokens
+			const accessToken = fastify.jwt.sign(
+				{ id: user.id, email: user.email, role: user.role },
+				{ expiresIn: "15m" },
+			);
 
-  // Logout
-  fastify.post('/logout', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    try {
-      const { refreshToken } = request.body as { refreshToken?: string };
-      const user = request.user as AuthUser;
-      
-      if (refreshToken) {
-        const session = sessionQueries.findByToken.get(refreshToken);
-        if (session && session.user_id === user.id) {
-          sessionQueries.delete.run(session.id);
-        }
-      } else {
-        // Logout all sessions
-        sessionQueries.deleteByUser.run(user.id);
-      }
+			const refreshToken = uuid();
+			const expiresAt = new Date(
+				Date.now() + 7 * 24 * 60 * 60 * 1000,
+			).toISOString();
 
-      return { success: true };
-    } catch (error) {
-      console.error('Logout error:', error);
-      return reply.status(500).send({ error: 'Logout failed' });
-    }
-  });
+			sessionQueries.create.run(
+				uuid(),
+				user.id,
+				refreshToken,
+				request.headers["user-agent"] || null,
+				request.ip,
+				expiresAt,
+			);
 
-  // Get current user
-  fastify.get('/me', { preHandler: [fastify.authenticate] }, async (request) => {
-    const authUser = request.user as AuthUser;
-    const user = userQueries.findById.get(authUser.id);
-    
-    if (!user) {
-      return { error: 'User not found' };
-    }
+			return {
+				user: {
+					id: user.id,
+					email: user.email,
+					name: user.name,
+					role: user.role,
+				},
+				accessToken,
+				refreshToken,
+			};
+		} catch (error: any) {
+			if (error instanceof z.ZodError) {
+				return reply
+					.status(400)
+					.send({ error: "Validation failed", details: error.errors });
+			}
+			console.error("Login error:", error);
+			return reply.status(500).send({ error: "Login failed" });
+		}
+	});
 
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      createdAt: user.created_at,
-    };
-  });
+	// Refresh token
+	fastify.post("/refresh", async (request, reply) => {
+		try {
+			const { refreshToken } = request.body as { refreshToken: string };
+
+			if (!refreshToken) {
+				return reply.status(400).send({ error: "Refresh token required" });
+			}
+
+			const session = sessionQueries.findByToken.get(refreshToken);
+			if (!session) {
+				return reply.status(401).send({ error: "Invalid refresh token" });
+			}
+
+			if (new Date(session.expires_at) < new Date()) {
+				sessionQueries.delete.run(session.id);
+				return reply.status(401).send({ error: "Refresh token expired" });
+			}
+
+			const user = userQueries.findById.get(session.user_id);
+			if (!user) {
+				return reply.status(401).send({ error: "User not found" });
+			}
+
+			// Generate new access token
+			const accessToken = fastify.jwt.sign(
+				{ id: user.id, email: user.email, role: user.role },
+				{ expiresIn: "15m" },
+			);
+
+			return { accessToken };
+		} catch (error) {
+			console.error("Refresh error:", error);
+			return reply.status(500).send({ error: "Token refresh failed" });
+		}
+	});
+
+	// Logout
+	fastify.post(
+		"/logout",
+		{ preHandler: [fastify.authenticate] },
+		async (request, reply) => {
+			try {
+				const { refreshToken } = request.body as { refreshToken?: string };
+				const user = request.user as AuthUser;
+
+				if (refreshToken) {
+					const session = sessionQueries.findByToken.get(refreshToken);
+					if (session && session.user_id === user.id) {
+						sessionQueries.delete.run(session.id);
+					}
+				} else {
+					// Logout all sessions
+					sessionQueries.deleteByUser.run(user.id);
+				}
+
+				return { success: true };
+			} catch (error) {
+				console.error("Logout error:", error);
+				return reply.status(500).send({ error: "Logout failed" });
+			}
+		},
+	);
+
+	// Get current user
+	fastify.get(
+		"/me",
+		{ preHandler: [fastify.authenticate] },
+		async (request) => {
+			const authUser = request.user as AuthUser;
+			const user = userQueries.findById.get(authUser.id);
+
+			if (!user) {
+				return { error: "User not found" };
+			}
+
+			return {
+				id: user.id,
+				email: user.email,
+				name: user.name,
+				role: user.role,
+				createdAt: user.created_at,
+			};
+		},
+	);
 }

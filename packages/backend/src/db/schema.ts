@@ -1,19 +1,19 @@
-import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync, mkdirSync } from 'fs';
+import Database from "better-sqlite3";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { existsSync, mkdirSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, '../../data');
+const DATA_DIR = join(__dirname, "../../data");
 
 if (!existsSync(DATA_DIR)) {
-  mkdirSync(DATA_DIR, { recursive: true });
+	mkdirSync(DATA_DIR, { recursive: true });
 }
 
-export const db = new Database(join(DATA_DIR, 'smarthome.db'));
+export const db = new Database(join(DATA_DIR, "smarthome.db"));
 
 // Enable WAL mode for better performance
-db.pragma('journal_mode = WAL');
+db.pragma("journal_mode = WAL");
 
 // Initialize schema
 db.exec(`
@@ -75,6 +75,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `);
 
-console.log('Database initialized');
+console.log("Database initialized");
 
 export default db;

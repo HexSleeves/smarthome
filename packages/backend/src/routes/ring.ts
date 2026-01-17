@@ -58,15 +58,18 @@ export async function ringRoutes(fastify: FastifyInstance) {
 					.send({ error: "Email and password are required" });
 			}
 
+			console.log('Calling ringService.authenticate...');
 			const result = await ringService.authenticate(
 				user.id,
 				body.email,
 				body.password,
 				body.twoFactorCode,
 			);
+			console.log('ringService.authenticate returned:', JSON.stringify(result));
 
 			if (!result.success) {
 				if (result.requiresTwoFactor) {
+					console.log('Returning 2FA required response');
 					return reply.status(200).send({
 						success: false,
 						requiresTwoFactor: true,
@@ -79,6 +82,7 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 			return { success: true };
 		} catch (error: any) {
+			console.error('Route catch block - error:', error.message || error);
 			if (error instanceof z.ZodError) {
 				return reply
 					.status(400)

@@ -52,10 +52,12 @@ class RingService extends EventEmitter {
 		prompt?: string;
 		error?: string;
 	}> {
+		// Define these outside try so they're accessible in catch
+		let authEmail = email;
+		let authPassword = password;
+
 		try {
 			// If we have a 2FA code but no email/password, try to get from pending session
-			let authEmail = email;
-			let authPassword = password;
 
 			if (twoFactorCode && (!email || !password)) {
 				const pending = this.pending2FA.get(userId);

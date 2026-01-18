@@ -3,10 +3,13 @@ import superjson from "superjson";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import type { User } from "@smarthome/shared";
 
+export type SignJwtFn = (payload: object, options?: { expiresIn?: string }) => string;
+
 export type TRPCContext = {
 	req: FastifyRequest;
 	res: FastifyReply;
 	user: User | null;
+	signJwt: SignJwtFn;
 };
 
 const t = initTRPC.context<TRPCContext>().create({

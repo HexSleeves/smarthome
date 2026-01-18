@@ -15,13 +15,10 @@ import Fastify from "fastify";
 import { config } from "./config.js";
 import { db } from "./db/schema.js";
 import { authMiddleware } from "./middleware/auth.js";
-import { authRoutes } from "./routes/auth.js";
 import { ringSnapshotRoutes } from "./routes/ring-snapshot.js";
 import { websocketRoutes } from "./routes/websocket.js";
-// Deprecated routes (use tRPC instead):
-// import { deviceRoutes } from "./routes/devices.js";
-// import { ringRoutes } from "./routes/ring.js";
-// import { roborockRoutes } from "./routes/roborock.js";
+// All auth, device, ring, roborock routes now use tRPC
+// Only ring-snapshot.ts remains as REST (for img src URLs)
 import { ringService } from "./services/ring.js";
 import { roborockService } from "./services/roborock.js";
 import { reconnectStoredCredentials } from "./startup.js";
@@ -87,9 +84,6 @@ async function main() {
 
 	// Add auth decorator
 	fastify.decorate("authenticate", authMiddleware);
-
-	// Auth routes (REST - tRPC auth available but frontend uses REST)
-	await fastify.register(authRoutes, { prefix: "/api/auth" });
 
 	// Ring snapshot route (needs REST for img src= usage)
 	await fastify.register(ringSnapshotRoutes, { prefix: "/api/ring" });

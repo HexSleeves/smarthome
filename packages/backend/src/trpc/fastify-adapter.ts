@@ -35,7 +35,13 @@ export async function registerTRPC(fastify: FastifyInstance) {
 					}
 				}
 
-				return { req, res, user };
+				// Provide signJwt function for auth router
+				// Use unknown cast to bypass strict AuthUser typing for JWT signing
+				const signJwt = (payload: object, options?: { expiresIn?: string }) => {
+					return (fastify.jwt.sign as (payload: unknown, options?: unknown) => string)(payload, options);
+				};
+
+				return { req, res, user, signJwt };
 			},
 		},
 	});

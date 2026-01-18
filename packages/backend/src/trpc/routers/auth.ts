@@ -30,8 +30,7 @@ function generateTokens(
 	ctx: TRPCContext,
 	user: { id: string; email: string; role: string },
 ): { accessToken: string; refreshToken: string; expiresAt: string } {
-	// Access token via fastify.jwt
-	const accessToken = (ctx.req.server as { jwt: { sign: (payload: object, options?: object) => string } }).jwt.sign(
+	const accessToken = ctx.signJwt(
 		{ id: user.id, email: user.email, role: user.role },
 		{ expiresIn: "15m" },
 	);
@@ -163,7 +162,7 @@ export const authRouter = router({
 			}
 
 			// Generate new access token
-			const accessToken = (ctx.req.server as { jwt: { sign: (payload: object, options?: object) => string } }).jwt.sign(
+			const accessToken = ctx.signJwt(
 				{ id: user.id, email: user.email, role: user.role },
 				{ expiresIn: "15m" },
 			);

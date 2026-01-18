@@ -101,13 +101,15 @@ Reconnects all users with stored Ring/Roborock credentials automatically.
 - [ ] Add `getAllDeviceStates(userId)` for batch access
 - [ ] Consider: Auto-reconnect stored credentials on startup
 
-### 2.3 Migrate Auth to tRPC ✅
+### 2.3 Migrate Auth to tRPC ✅ COMPLETE
 - [x] Create `src/trpc/routers/auth.ts`
 - [x] Implement: `register`, `login`, `refresh`, `logout`, `me`
-- [x] Handle cookies/tokens properly in tRPC context
+- [x] Add `signJwt` function to tRPC context for JWT signing
 - [x] Add to appRouter
-- [ ] Deprecate REST auth routes (frontend still uses REST, tRPC available)
-- [ ] Update frontend auth hooks (optional - REST auth works fine)
+- [x] Remove REST auth routes from backend
+- [x] Update frontend to use vanilla tRPC client for auth
+- [x] Create `lib/trpc/vanilla.ts` for imperative tRPC calls in zustand store
+- [x] Clean up `lib/api.ts` - only token management and ring snapshot URL remain
 
 ### 2.4 Structured Logging
 - [ ] Replace all `console.log/error` with `fastify.log.*`

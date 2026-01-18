@@ -1,4 +1,3 @@
-import rateLimit from "@fastify/rate-limit";
 import * as argon2 from "argon2";
 import type { FastifyInstance } from "fastify";
 import { v4 as uuid } from "uuid";
@@ -18,11 +17,6 @@ const loginSchema = z.object({
 });
 
 export async function authRoutes(fastify: FastifyInstance) {
-	// Stricter rate limiting for auth endpoints (10 req/min vs 100 global)
-	await fastify.register(rateLimit, {
-		max: 10,
-		timeWindow: "1 minute",
-	});
 
 	// Register
 	fastify.post("/register", async (request, reply) => {

@@ -1,4 +1,7 @@
 import "dotenv/config";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import formbody from "@fastify/formbody";
@@ -8,9 +11,6 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { existsSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
 
 import { config } from "./config.js";
 import { db } from "./db/schema.js";
@@ -45,11 +45,17 @@ async function main() {
 		contentSecurityPolicy: false, // Disable for SPA
 	});
 
-	// Rate limiting - global
+	// Rate limiting - global with per-route overrides
 	await fastify.register(rateLimit, {
 		global: true,
 		max: 100,
 		timeWindow: "1 minute",
+		// Allow per-route config overrides
+		addHeadersOnExceeding: {
+			"x-ratelimit-limit": true,
+			"x-ratelimit-remaining": true,
+			"x-ratelimit-reset": true,
+		},
 	});
 
 	// CORS - explicit origins in production

@@ -26,7 +26,7 @@
 
 - [x] Install `@fastify/rate-limit`
 - [x] Global limit: 100 req/min
-- [x] Auth endpoints: 10 req/min (stricter)
+- [ ] Auth endpoints: 10 req/min (stricter) - *TODO: per-route override not working, needs investigation*
 
 ### 1.3 Add Security Headers
 

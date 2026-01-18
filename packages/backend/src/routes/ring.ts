@@ -38,8 +38,14 @@ const twoFactorSchema = z.object({
 });
 
 export async function ringRoutes(fastify: FastifyInstance) {
-	// Require auth for all routes
-	fastify.addHook("preHandler", fastify.authenticate);
+	// Require auth for all routes except snapshot (which has custom token handling)
+	fastify.addHook("preHandler", async (request, reply) => {
+		// Skip auth for snapshot route - it handles auth via query token
+		if (request.url.includes("/snapshot")) {
+			return;
+		}
+		return fastify.authenticate(request, reply);
+	});
 
 	// Check connection status
 	fastify.get("/status", async (request) => {

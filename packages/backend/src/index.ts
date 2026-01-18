@@ -16,12 +16,15 @@ import { config } from "./config.js";
 import { db } from "./db/schema.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { authRoutes } from "./routes/auth.js";
-import { deviceRoutes } from "./routes/devices.js";
-import { ringRoutes } from "./routes/ring.js";
-import { roborockRoutes } from "./routes/roborock.js";
+import { ringSnapshotRoutes } from "./routes/ring-snapshot.js";
 import { websocketRoutes } from "./routes/websocket.js";
+// Deprecated routes (use tRPC instead):
+// import { deviceRoutes } from "./routes/devices.js";
+// import { ringRoutes } from "./routes/ring.js";
+// import { roborockRoutes } from "./routes/roborock.js";
 import { ringService } from "./services/ring.js";
 import { roborockService } from "./services/roborock.js";
+import { reconnectStoredCredentials } from "./startup.js";
 import { registerTRPC } from "./trpc/fastify-adapter.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -85,13 +88,19 @@ async function main() {
 	// Add auth decorator
 	fastify.decorate("authenticate", authMiddleware);
 
-	// API routes (REST - will be deprecated in favor of tRPC)
+	// Auth routes (REST - tRPC auth available but frontend uses REST)
 	await fastify.register(authRoutes, { prefix: "/api/auth" });
 
-	await fastify.register(deviceRoutes, { prefix: "/api/devices" });
-	await fastify.register(roborockRoutes, { prefix: "/api/roborock" });
-	await fastify.register(ringRoutes, { prefix: "/api/ring" });
+	// Ring snapshot route (needs REST for img src= usage)
+	await fastify.register(ringSnapshotRoutes, { prefix: "/api/ring" });
+
+	// WebSocket routes
 	await fastify.register(websocketRoutes, { prefix: "/api/ws" });
+
+	// Deprecated REST routes - use tRPC instead:
+	// - /api/devices/* → trpc.device.*
+	// - /api/roborock/* → trpc.roborock.*
+	// - /api/ring/* (except snapshot) → trpc.ring.*
 
 	// tRPC routes
 	await registerTRPC(fastify);
@@ -126,6 +135,12 @@ async function main() {
 	try {
 		await fastify.listen({ port: config.PORT, host: config.HOST });
 		fastify.log.info(`Server running at http://${config.HOST}:${config.PORT}`);
+
+		// Auto-reconnect services for users with stored credentials
+		// Run in background to not block startup
+		reconnectStoredCredentials(fastify).catch((err) => {
+			fastify.log.error(err, "Failed to reconnect stored credentials");
+		});
 	} catch (err) {
 		fastify.log.error(err);
 		process.exit(1);

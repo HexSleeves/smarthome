@@ -1,5 +1,5 @@
 import type { WebSocket } from "@fastify/websocket";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { ringService } from "../services/ring.js";
 import { roborockService } from "../services/roborock.js";
 import type { JwtPayload, WsIncomingMessage } from "../types.js";
@@ -22,84 +22,90 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 		});
 	});
 
-	fastify.get("/events", { websocket: true }, async (connection, request) => {
-		const ws = connection.socket;
-
+	// Note: In @fastify/websocket v11+, the handler receives (socket, request) directly
+	// socket IS the WebSocket instance (not connection.socket)
+	fastify.get("/events", { websocket: true }, (socket: WebSocket, request: FastifyRequest) => {
 		// Verify auth token from query string
 		const url = new URL(request.url, `http://${request.headers.host}`);
 		const token = url.searchParams.get("token");
 
 		if (!token) {
-			ws.send(JSON.stringify({ type: "error", message: "Token required" }));
-			ws.close();
+			socket.send(JSON.stringify({ type: "error", message: "Token required" }));
+			socket.close();
 			return;
 		}
 
+		let decoded: JwtPayload;
 		try {
-			const decoded = fastify.jwt.verify<JwtPayload>(token);
+			decoded = fastify.jwt.verify<JwtPayload>(token);
+		} catch (error) {
+			fastify.log.warn({ err: error }, "WebSocket auth failed");
+			socket.send(JSON.stringify({ type: "error", message: "Invalid token" }));
+			socket.close();
+			return;
+		}
 
-			const client: WsClient = {
-				ws,
-				userId: decoded.id,
-				unsubscribers: [],
-			};
+		const client: WsClient = {
+			ws: socket,
+			userId: decoded.id,
+			unsubscribers: [],
+		};
 
-			clients.set(ws, client);
+		clients.set(socket, client);
 
-			// Subscribe to Ring events
-			if (ringService.isConnected(decoded.id)) {
-				const unsubscribe = ringService.subscribeToEvents(
-					decoded.id,
-					(event) => {
-						const { type: eventType, ...rest } = event;
-						ws.send(
+		// Subscribe to Ring events
+		if (ringService.isConnected(decoded.id)) {
+			const unsubscribe = ringService.subscribeToEvents(
+				decoded.id,
+				(event) => {
+					const { type: eventType, ...rest } = event;
+					if (socket.readyState === socket.OPEN) {
+						socket.send(
 							JSON.stringify({
 								type: `ring:${eventType}`,
 								...rest,
 							}),
 						);
-					},
-				);
-				client.unsubscribers.push(unsubscribe);
-			}
-
-			ws.send(JSON.stringify({ type: "connected", userId: decoded.id }));
-
-			// Handle incoming messages
-			ws.on("message", async (data: string) => {
-				try {
-					const message = JSON.parse(data.toString());
-					await handleMessage(client, message);
-				} catch (error) {
-					console.error("WS message error:", error);
-				}
-			});
-
-			ws.on("close", () => {
-				// Cleanup subscriptions
-				const client = clients.get(ws);
-				if (client) {
-					client.unsubscribers.forEach((unsub) => unsub());
-					clients.delete(ws);
-				}
-			});
-
-			ws.on("error", (error: Error) => {
-				console.error("WebSocket error:", error);
-				clients.delete(ws);
-			});
-		} catch (error) {
-			console.error("WebSocket error:", error);
-			ws.send(JSON.stringify({ type: "error", message: "Invalid token" }));
-			ws.close();
+					}
+				},
+			);
+			client.unsubscribers.push(unsubscribe);
 		}
+
+		socket.send(JSON.stringify({ type: "connected", userId: decoded.id }));
+
+		// Handle incoming messages - attach synchronously!
+		socket.on("message", (data: Buffer) => {
+			try {
+				const message = JSON.parse(data.toString());
+				handleMessage(client, message, fastify);
+			} catch (error) {
+				fastify.log.error({ err: error }, "WS message error");
+			}
+		});
+
+		socket.on("close", () => {
+			// Cleanup subscriptions
+			const clientData = clients.get(socket);
+			if (clientData) {
+				clientData.unsubscribers.forEach((unsub) => unsub());
+				clients.delete(socket);
+			}
+		});
+
+		socket.on("error", (error: Error) => {
+			fastify.log.error({ err: error }, "WebSocket error");
+			clients.delete(socket);
+		});
 	});
 }
 
-async function handleMessage(client: WsClient, message: WsIncomingMessage) {
+function handleMessage(client: WsClient, message: WsIncomingMessage, fastify: FastifyInstance) {
 	switch (message.type) {
 		case "ping":
-			client.ws.send(JSON.stringify({ type: "pong" }));
+			if (client.ws.readyState === client.ws.OPEN) {
+				client.ws.send(JSON.stringify({ type: "pong" }));
+			}
 			break;
 
 		case "subscribe:ring":
@@ -109,16 +115,20 @@ async function handleMessage(client: WsClient, message: WsIncomingMessage) {
 					client.userId,
 					(event) => {
 						const { type: eventType, ...rest } = event;
-						client.ws.send(
-							JSON.stringify({
-								type: `ring:${eventType}`,
-								...rest,
-							}),
-						);
+						if (client.ws.readyState === client.ws.OPEN) {
+							client.ws.send(
+								JSON.stringify({
+									type: `ring:${eventType}`,
+									...rest,
+								}),
+							);
+						}
 					},
 				);
 				client.unsubscribers.push(unsubscribe);
-				client.ws.send(JSON.stringify({ type: "subscribed", service: "ring" }));
+				if (client.ws.readyState === client.ws.OPEN) {
+					client.ws.send(JSON.stringify({ type: "subscribed", service: "ring" }));
+				}
 			}
 			break;
 
@@ -127,18 +137,20 @@ async function handleMessage(client: WsClient, message: WsIncomingMessage) {
 			break;
 
 		default:
-			client.ws.send(
-				JSON.stringify({ type: "error", message: "Unknown message type" }),
-			);
+			if (client.ws.readyState === client.ws.OPEN) {
+				client.ws.send(
+					JSON.stringify({ type: "error", message: "Unknown message type" }),
+				);
+			}
 	}
 }
 
 function broadcastToUser(userId: string, message: object) {
 	const payload = JSON.stringify(message);
 
-	for (const [ws, client] of clients) {
-		if (client.userId === userId && ws.readyState === ws.OPEN) {
-			ws.send(payload);
+	for (const [socket, client] of clients) {
+		if (client.userId === userId && socket.readyState === socket.OPEN) {
+			socket.send(payload);
 		}
 	}
 }
@@ -146,9 +158,9 @@ function broadcastToUser(userId: string, message: object) {
 export function broadcast(message: object) {
 	const payload = JSON.stringify(message);
 
-	for (const [ws] of clients) {
-		if (ws.readyState === ws.OPEN) {
-			ws.send(payload);
+	for (const [socket] of clients) {
+		if (socket.readyState === socket.OPEN) {
+			socket.send(payload);
 		}
 	}
 }

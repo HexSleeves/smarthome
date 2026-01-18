@@ -135,6 +135,10 @@ export const credentialQueries = {
     SELECT * FROM device_credentials WHERE user_id = ? AND provider = ?
   `),
 
+	findAllByProvider: db.prepare<[string], Pick<DeviceCredential, "user_id">>(`
+    SELECT user_id FROM device_credentials WHERE provider = ?
+  `),
+
 	delete: db.prepare(`
     DELETE FROM device_credentials WHERE user_id = ? AND provider = ?
   `),
@@ -243,4 +247,11 @@ export function hasCredentials(
 	provider: "roborock" | "ring",
 ): boolean {
 	return !!credentialQueries.findByProvider.get(userId, provider);
+}
+
+export function getUsersWithCredentials(
+	provider: "roborock" | "ring",
+): string[] {
+	const results = credentialQueries.findAllByProvider.all(provider);
+	return results.map((r) => r.user_id);
 }

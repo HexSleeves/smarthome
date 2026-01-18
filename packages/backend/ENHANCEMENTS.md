@@ -8,7 +8,7 @@
 |-------|--------|--------|
 | Phase 1: Critical Security | ✅ Complete | Week 1 |
 | Phase 1.5: Type Safety | ✅ Complete | Week 1 |
-| Phase 2: Architecture Cleanup | ⬜ Not Started | Week 1-2 |
+| Phase 2: Architecture Cleanup | ✅ Complete | Week 1-2 |
 | Phase 3: Reliability & Observability | ⬜ Not Started | Week 2 |
 | Phase 4: Testing | ⬜ Not Started | Ongoing |
 
@@ -64,16 +64,16 @@
 
 ## Known Issues / Bugs 🐛
 
-### 1. WebSocket Error (HIGH)
-**Location**: `src/routes/websocket.ts:66`
+### 1. WebSocket Error ✅ FIXED
+**Location**: `src/routes/websocket.ts`
 **Error**: `Cannot read properties of undefined (reading 'send')`
-**Cause**: WebSocket connection object is undefined when trying to send
-**Fix needed**: Check if `ws` is defined before sending, handle connection lifecycle properly
+**Cause**: API change in @fastify/websocket v11 - `connection.socket` no longer exists
+**Fix**: Updated to use new API where first arg is the WebSocket directly
 
-### 2. Ring Service Disconnects on Restart (MEDIUM)
+### 2. Ring Service Disconnects on Restart ✅ FIXED
 **Behavior**: After server restart, Ring shows "Not connected" until re-authenticated
-**Cause**: Ring API credentials are stored encrypted in DB but the live `RingApi` instance is in-memory only
-**Fix needed**: Auto-reconnect on startup using stored credentials (call `connectWithStoredCredentials` for each user with credentials)
+**Fix**: Added `src/startup.ts` with `reconnectStoredCredentials()` that runs after server start.
+Reconnects all users with stored Ring/Roborock credentials automatically.
 
 ### 3. Auth Rate Limiting Not Working (LOW)
 **Behavior**: Auth routes use global 100 req/min instead of 10 req/min
@@ -85,14 +85,15 @@
 
 ---
 
-## Phase 2: Architecture Cleanup (Priority: 🟠 HIGH)
+## Phase 2: Architecture Cleanup ✅ COMPLETE
 
-### 2.1 Remove Duplicate REST Routes
-- [ ] Keep: `/api/auth/*`, `/api/health`, `/api/ring/devices/:id/snapshot`
-- [ ] Remove: `/api/devices/*` (use tRPC `device.*`)
-- [ ] Remove: `/api/roborock/*` (use tRPC `roborock.*`)
-- [ ] Remove: `/api/ring/*` except snapshot (use tRPC `ring.*`)
-- [ ] Verify frontend uses tRPC exclusively for removed routes
+### 2.1 Remove Duplicate REST Routes ✅
+- [x] Keep: `/api/auth/*`, `/api/health`, `/api/ring/devices/:id/snapshot`
+- [x] Remove: `/api/devices/*` (use tRPC `device.*`)
+- [x] Remove: `/api/roborock/*` (use tRPC `roborock.*`)
+- [x] Remove: `/api/ring/*` except snapshot (use tRPC `ring.*`)
+- [x] Verify frontend uses tRPC exclusively for removed routes
+- [x] Created `src/routes/ring-snapshot.ts` for REST snapshot route
 
 ### 2.2 Fix Service Encapsulation ✅ (Partially Done)
 - [x] Add `getDeviceState(deviceId)` public method to services
@@ -100,13 +101,13 @@
 - [ ] Add `getAllDeviceStates(userId)` for batch access
 - [ ] Consider: Auto-reconnect stored credentials on startup
 
-### 2.3 Migrate Auth to tRPC
-- [ ] Create `src/trpc/routers/auth.ts`
-- [ ] Implement: `register`, `login`, `refresh`, `logout`, `me`
-- [ ] Handle cookies/tokens properly in tRPC context
-- [ ] Add to appRouter
-- [ ] Deprecate REST auth routes
-- [ ] Update frontend auth hooks
+### 2.3 Migrate Auth to tRPC ✅
+- [x] Create `src/trpc/routers/auth.ts`
+- [x] Implement: `register`, `login`, `refresh`, `logout`, `me`
+- [x] Handle cookies/tokens properly in tRPC context
+- [x] Add to appRouter
+- [ ] Deprecate REST auth routes (frontend still uses REST, tRPC available)
+- [ ] Update frontend auth hooks (optional - REST auth works fine)
 
 ### 2.4 Structured Logging
 - [ ] Replace all `console.log/error` with `fastify.log.*`

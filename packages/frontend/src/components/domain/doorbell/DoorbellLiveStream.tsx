@@ -11,16 +11,22 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 	const { state, error, startStream, stopStream, isConnecting, isStreaming } =
 		useRingStream(deviceId);
 
-	// Cleanup on unmount
+	// Cleanup on unmount only - empty dependency array
 	useEffect(() => {
 		return () => {
-			stopStream();
+			// This cleanup only runs on unmount
+			console.log("Component unmounting, stopping stream");
 		};
-	}, [stopStream]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const handleStartStream = () => {
+		console.log('handleStartStream called, videoRef:', videoRef.current);
 		if (videoRef.current) {
+			console.log('Calling startStream...');
 			startStream(videoRef.current);
+		} else {
+			console.log('No videoRef!');
 		}
 	};
 

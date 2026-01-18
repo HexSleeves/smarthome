@@ -1,8 +1,8 @@
 import { Wifi } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useDevicesByType, useRoborockStatus } from "@/hooks";
 import { VacuumCard } from "@/components/domain/vacuum";
 import { EmptyState } from "@/components/ui";
+import { useDevicesByType, useRoborockStatus } from "@/hooks";
 
 export function VacuumSection() {
 	const { connected, hasCredentials } = useRoborockStatus();

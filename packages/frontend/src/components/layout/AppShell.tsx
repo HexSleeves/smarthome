@@ -39,6 +39,7 @@ export function Layout() {
 						<Home className="w-8 h-8 text-primary-600" />
 						<span className="text-xl font-bold">Smart Home</span>
 						<button
+							type="button"
 							className="ml-auto lg:hidden"
 							onClick={() => setSidebarOpen(false)}
 						>
@@ -84,6 +85,7 @@ export function Layout() {
 								<p className="text-xs text-gray-500 capitalize">{user?.role}</p>
 							</div>
 							<button
+								type="button"
 								onClick={logout}
 								className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
 								title="Logout"
@@ -100,6 +102,7 @@ export function Layout() {
 				{/* Top bar */}
 				<header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 lg:px-6">
 					<button
+						type="button"
 						className="lg:hidden p-2 -ml-2 text-gray-500"
 						onClick={() => setSidebarOpen(true)}
 					>

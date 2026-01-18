@@ -105,8 +105,7 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 			return { success: true };
 		} catch (error: unknown) {
-			const message =
-				error instanceof Error ? error.message : "Unknown error";
+			const message = error instanceof Error ? error.message : "Unknown error";
 			console.error("Route catch block - error:", message);
 			if (isZodError(error)) {
 				return reply
@@ -247,80 +246,92 @@ export async function ringRoutes(fastify: FastifyInstance) {
 	);
 
 	// Get live stream URL
-	fastify.get<{ Params: DeviceIdParams }>("/devices/:deviceId/stream", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.get<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/stream",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (!ringService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Ring" });
-		}
+			if (!ringService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Ring" });
+			}
 
-		const streamUrl = await ringService.getLiveStreamUrl(user.id, deviceId);
-		if (!streamUrl) {
-			return reply.status(404).send({ error: "Stream not available" });
-		}
+			const streamUrl = await ringService.getLiveStreamUrl(user.id, deviceId);
+			if (!streamUrl) {
+				return reply.status(404).send({ error: "Stream not available" });
+			}
 
-		return { streamUrl };
-	});
+			return { streamUrl };
+		},
+	);
 
 	// Get event history
-	fastify.get<{ Params: DeviceIdParams; Querystring: LimitQuery }>("/devices/:deviceId/history", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
-		const { limit = 20 } = request.query;
+	fastify.get<{ Params: DeviceIdParams; Querystring: LimitQuery }>(
+		"/devices/:deviceId/history",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
+			const { limit = 20 } = request.query;
 
-		if (!ringService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Ring" });
-		}
+			if (!ringService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Ring" });
+			}
 
-		const history = await ringService.getHistory(
-			user.id,
-			deviceId,
-			Math.min(limit, 100),
-		);
-		return { history };
-	});
+			const history = await ringService.getHistory(
+				user.id,
+				deviceId,
+				Math.min(limit, 100),
+			);
+			return { history };
+		},
+	);
 
 	// Toggle light
-	fastify.post<{ Params: DeviceIdParams; Body: LightBody }>("/devices/:deviceId/light", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
-		const { on } = request.body;
+	fastify.post<{ Params: DeviceIdParams; Body: LightBody }>(
+		"/devices/:deviceId/light",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
+			const { on } = request.body;
 
-		if (user.role !== "admin") {
-			return reply.status(403).send({ error: "Admin access required" });
-		}
+			if (user.role !== "admin") {
+				return reply.status(403).send({ error: "Admin access required" });
+			}
 
-		if (!ringService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Ring" });
-		}
+			if (!ringService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Ring" });
+			}
 
-		const success = await ringService.toggleLight(user.id, deviceId, on);
-		if (!success) {
-			return reply.status(500).send({ error: "Failed to toggle light" });
-		}
+			const success = await ringService.toggleLight(user.id, deviceId, on);
+			if (!success) {
+				return reply.status(500).send({ error: "Failed to toggle light" });
+			}
 
-		return { success: true };
-	});
+			return { success: true };
+		},
+	);
 
 	// Trigger siren
-	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/siren", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.post<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/siren",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (user.role !== "admin") {
-			return reply.status(403).send({ error: "Admin access required" });
-		}
+			if (user.role !== "admin") {
+				return reply.status(403).send({ error: "Admin access required" });
+			}
 
-		if (!ringService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Ring" });
-		}
+			if (!ringService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Ring" });
+			}
 
-		const success = await ringService.triggerSiren(user.id, deviceId);
-		if (!success) {
-			return reply.status(500).send({ error: "Failed to trigger siren" });
-		}
+			const success = await ringService.triggerSiren(user.id, deviceId);
+			if (!success) {
+				return reply.status(500).send({ error: "Failed to trigger siren" });
+			}
 
-		return { success: true };
-	});
+			return { success: true };
+		},
+	);
 }

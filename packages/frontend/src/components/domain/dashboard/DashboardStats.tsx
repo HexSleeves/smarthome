@@ -3,8 +3,8 @@ import { StatCard } from "@/components/ui";
 import {
 	useDevices,
 	useRecentEvents,
-	useRoborockStatus,
 	useRingStatus,
+	useRoborockStatus,
 } from "@/hooks";
 
 export function DashboardStats() {

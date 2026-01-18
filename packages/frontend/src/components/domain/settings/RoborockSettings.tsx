@@ -1,8 +1,8 @@
+import { useForm } from "@tanstack/react-form";
 import { CheckCircle, Eye, EyeOff, Loader2, Wifi, XCircle } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "@tanstack/react-form";
-import { useRoborockStatus, useRoborockAuth } from "@/hooks";
 import { FieldError } from "@/components/ui";
+import { useRoborockAuth, useRoborockStatus } from "@/hooks";
 
 export function RoborockSettings() {
 	const [showPassword, setShowPassword] = useState(false);
@@ -75,6 +75,7 @@ export function RoborockSettings() {
 						Your Roborock account is connected.
 					</p>
 					<button
+						type="button"
 						onClick={() => disconnect()}
 						disabled={isDisconnecting}
 						className="btn btn-secondary"
@@ -93,6 +94,7 @@ export function RoborockSettings() {
 						</div>
 					)}
 					<button
+						type="button"
 						onClick={handleConnect}
 						disabled={isConnecting}
 						className="btn btn-primary"

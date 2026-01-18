@@ -69,7 +69,7 @@ export async function api<T = unknown>(
 	};
 
 	if (accessToken) {
-		headers["Authorization"] = `Bearer ${accessToken}`;
+		headers.Authorization = `Bearer ${accessToken}`;
 	}
 
 	let res = await fetch(url, { ...options, headers });
@@ -78,7 +78,7 @@ export async function api<T = unknown>(
 	if (res.status === 401 && refreshToken) {
 		const refreshed = await refreshAccessToken();
 		if (refreshed) {
-			headers["Authorization"] = `Bearer ${accessToken}`;
+			headers.Authorization = `Bearer ${accessToken}`;
 			res = await fetch(url, { ...options, headers });
 		}
 	}

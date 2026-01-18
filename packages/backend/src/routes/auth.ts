@@ -18,7 +18,6 @@ const loginSchema = z.object({
 });
 
 export async function authRoutes(fastify: FastifyInstance) {
-
 	// Register
 	fastify.post("/register", async (request, reply) => {
 		try {

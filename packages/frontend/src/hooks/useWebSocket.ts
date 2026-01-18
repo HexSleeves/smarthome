@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
-import { wsClient } from "@/lib/websocket";
 import type { RealtimeEvent, RoborockDeviceState } from "@smarthome/shared";
+import { useCallback, useEffect, useState } from "react";
+import { wsClient } from "@/lib/websocket";
 
 export function useWebSocketConnection() {
 	const [connected, setConnected] = useState(false);

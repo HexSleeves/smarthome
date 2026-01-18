@@ -1,8 +1,8 @@
 import { Bell, CheckCircle, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useRingStatus, useRingAuth } from "@/hooks";
-import { RingAuthForm } from "./RingAuthForm";
+import { useRingAuth, useRingStatus } from "@/hooks";
 import { Ring2FAForm } from "./Ring2FAForm";
+import { RingAuthForm } from "./RingAuthForm";
 
 export function RingSettings() {
 	const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
@@ -159,6 +159,7 @@ function ConnectedState({
 				Your Ring account is connected.
 			</p>
 			<button
+				type="button"
 				onClick={onDisconnect}
 				disabled={isDisconnecting}
 				className="btn btn-secondary"
@@ -189,6 +190,7 @@ function StoredCredentialsState({
 				</div>
 			)}
 			<button
+				type="button"
 				onClick={onConnect}
 				disabled={isConnecting}
 				className="btn btn-primary"

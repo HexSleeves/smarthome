@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Home, Eye, EyeOff } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { useAuthStore } from "@/stores/auth";
+import { Eye, EyeOff, Home } from "lucide-react";
+import { useState } from "react";
 import { FieldError } from "@/components/ui";
+import { useAuthStore } from "@/stores/auth";
 
 export function LoginPage() {
 	const [isRegister, setIsRegister] = useState(false);
@@ -66,9 +66,8 @@ export function LoginPage() {
 						)}
 
 						{isRegister && (
-							<form.Field
-								name="name"
-								children={(field) => (
+							<form.Field name="name">
+								{(field) => (
 									<div>
 										<label
 											htmlFor={field.name}
@@ -88,7 +87,7 @@ export function LoginPage() {
 										/>
 									</div>
 								)}
-							/>
+							</form.Field>
 						)}
 
 						<form.Field
@@ -101,7 +100,8 @@ export function LoginPage() {
 											? "Invalid email format"
 											: undefined,
 							}}
-							children={(field) => (
+						>
+							{(field) => (
 								<div>
 									<label
 										htmlFor={field.name}
@@ -123,7 +123,7 @@ export function LoginPage() {
 									<FieldError field={field} />
 								</div>
 							)}
-						/>
+						</form.Field>
 
 						<form.Field
 							name="password"
@@ -135,7 +135,8 @@ export function LoginPage() {
 											? "Password must be at least 8 characters"
 											: undefined,
 							}}
-							children={(field) => (
+						>
+							{(field) => (
 								<div>
 									<label
 										htmlFor={field.name}
@@ -171,11 +172,12 @@ export function LoginPage() {
 									<FieldError field={field} />
 								</div>
 							)}
-						/>
+						</form.Field>
 
 						<form.Subscribe
 							selector={(state) => [state.canSubmit, state.isSubmitting]}
-							children={([canSubmit, isSubmitting]) => (
+						>
+							{([canSubmit, isSubmitting]) => (
 								<button
 									type="submit"
 									disabled={!canSubmit || isSubmitting}
@@ -188,11 +190,12 @@ export function LoginPage() {
 											: "Sign In"}
 								</button>
 							)}
-						/>
+						</form.Subscribe>
 					</form>
 
 					<div className="mt-6 text-center">
 						<button
+							type="submit"
 							onClick={() => {
 								setIsRegister(!isRegister);
 								setError("");

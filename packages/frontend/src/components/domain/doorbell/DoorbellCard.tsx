@@ -1,5 +1,5 @@
-import { Battery } from "lucide-react";
 import type { Device, RingDeviceState } from "@smarthome/shared";
+import { Battery } from "lucide-react";
 
 type DoorbellCardProps = {
 	doorbell: Device;

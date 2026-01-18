@@ -85,7 +85,7 @@ class RingService extends EventEmitter {
 			const api = new RingApi({
 				email: authEmail,
 				password: authPassword,
-			} as Parameters<typeof RingApi>[0]);
+			} as unknown as ConstructorParameters<typeof RingApi>[0]);
 
 			// If we have a 2FA code, authenticate with it
 			if (twoFactorCode) {
@@ -413,7 +413,7 @@ class RingService extends EventEmitter {
 				// Motion events
 				const motionSub = camera.onMotionDetected.subscribe((motion) => {
 					if (motion) {
-						const event = {
+						const event: RingEventPayload = {
 							type: "motion",
 							deviceId: camera.id,
 							deviceName: camera.name,
@@ -439,7 +439,7 @@ class RingService extends EventEmitter {
 				if (camera.isDoorbot) {
 					const dingSub = camera.onDoorbellPressed.subscribe((ding) => {
 						if (ding) {
-							const event = {
+							const event: RingEventPayload = {
 								type: "ding",
 								deviceId: camera.id,
 								deviceName: camera.name,
@@ -462,7 +462,10 @@ class RingService extends EventEmitter {
 			}
 		}
 
-		return () => unsubscribers.forEach((unsub) => unsub());
+		return () =>
+			unsubscribers.forEach((unsub) => {
+				unsub();
+			});
 	}
 
 	isConnected(userId: string): boolean {

@@ -1,5 +1,5 @@
-import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
+import { Loader2 } from "lucide-react";
 
 type SpinnerProps = {
 	size?: "sm" | "md" | "lg";

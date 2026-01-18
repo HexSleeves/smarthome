@@ -119,182 +119,202 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 	});
 
 	// Send command to device
-	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/command", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.post<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/command",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (user.role !== "admin") {
-			return reply
-				.status(403)
-				.send({ error: "Admin access required for commands" });
-		}
-
-		if (!roborockService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Roborock" });
-		}
-
-		try {
-			const body = commandSchema.parse(request.body);
-			let success = false;
-
-			switch (body.command) {
-				case "start":
-					success = await roborockService.startCleaning(user.id, deviceId);
-					break;
-				case "stop":
-					success = await roborockService.stopCleaning(user.id, deviceId);
-					break;
-				case "pause":
-					success = await roborockService.pauseCleaning(user.id, deviceId);
-					break;
-				case "home":
-					success = await roborockService.returnHome(user.id, deviceId);
-					break;
-				case "find":
-					success = await roborockService.findRobot(user.id, deviceId);
-					break;
+			if (user.role !== "admin") {
+				return reply
+					.status(403)
+					.send({ error: "Admin access required for commands" });
 			}
 
-			if (!success) {
+			if (!roborockService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Roborock" });
+			}
+
+			try {
+				const body = commandSchema.parse(request.body);
+				let success = false;
+
+				switch (body.command) {
+					case "start":
+						success = await roborockService.startCleaning(user.id, deviceId);
+						break;
+					case "stop":
+						success = await roborockService.stopCleaning(user.id, deviceId);
+						break;
+					case "pause":
+						success = await roborockService.pauseCleaning(user.id, deviceId);
+						break;
+					case "home":
+						success = await roborockService.returnHome(user.id, deviceId);
+						break;
+					case "find":
+						success = await roborockService.findRobot(user.id, deviceId);
+						break;
+				}
+
+				if (!success) {
+					return reply.status(500).send({ error: "Command failed" });
+				}
+
+				return { success: true };
+			} catch (error: unknown) {
+				if (isZodError(error)) {
+					return reply
+						.status(400)
+						.send({ error: "Invalid command", details: error.issues });
+				}
 				return reply.status(500).send({ error: "Command failed" });
 			}
-
-			return { success: true };
-		} catch (error: unknown) {
-			if (isZodError(error)) {
-				return reply
-					.status(400)
-					.send({ error: "Invalid command", details: error.issues });
-			}
-			return reply.status(500).send({ error: "Command failed" });
-		}
-	});
+		},
+	);
 
 	// Set fan speed
-	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/fan-speed", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.post<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/fan-speed",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (user.role !== "admin") {
-			return reply.status(403).send({ error: "Admin access required" });
-		}
+			if (user.role !== "admin") {
+				return reply.status(403).send({ error: "Admin access required" });
+			}
 
-		try {
-			const body = fanSpeedSchema.parse(request.body);
-			const success = await roborockService.setFanSpeed(
-				user.id,
-				deviceId,
-				body.speed,
-			);
+			try {
+				const body = fanSpeedSchema.parse(request.body);
+				const success = await roborockService.setFanSpeed(
+					user.id,
+					deviceId,
+					body.speed,
+				);
 
-			if (!success) {
+				if (!success) {
+					return reply.status(500).send({ error: "Failed to set fan speed" });
+				}
+
+				return { success: true };
+			} catch (error: unknown) {
+				if (isZodError(error)) {
+					return reply
+						.status(400)
+						.send({ error: "Validation failed", details: error.issues });
+				}
 				return reply.status(500).send({ error: "Failed to set fan speed" });
 			}
-
-			return { success: true };
-		} catch (error: unknown) {
-			if (isZodError(error)) {
-				return reply
-					.status(400)
-					.send({ error: "Validation failed", details: error.issues });
-			}
-			return reply.status(500).send({ error: "Failed to set fan speed" });
-		}
-	});
+		},
+	);
 
 	// Set water level
-	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/water-level", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.post<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/water-level",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (user.role !== "admin") {
-			return reply.status(403).send({ error: "Admin access required" });
-		}
+			if (user.role !== "admin") {
+				return reply.status(403).send({ error: "Admin access required" });
+			}
 
-		try {
-			const body = waterLevelSchema.parse(request.body);
-			const success = await roborockService.setWaterLevel(
-				user.id,
-				deviceId,
-				body.level,
-			);
+			try {
+				const body = waterLevelSchema.parse(request.body);
+				const success = await roborockService.setWaterLevel(
+					user.id,
+					deviceId,
+					body.level,
+				);
 
-			if (!success) {
+				if (!success) {
+					return reply.status(500).send({ error: "Failed to set water level" });
+				}
+
+				return { success: true };
+			} catch (error: unknown) {
+				if (isZodError(error)) {
+					return reply
+						.status(400)
+						.send({ error: "Validation failed", details: error.issues });
+				}
 				return reply.status(500).send({ error: "Failed to set water level" });
 			}
-
-			return { success: true };
-		} catch (error: unknown) {
-			if (isZodError(error)) {
-				return reply
-					.status(400)
-					.send({ error: "Validation failed", details: error.issues });
-			}
-			return reply.status(500).send({ error: "Failed to set water level" });
-		}
-	});
+		},
+	);
 
 	// Clean specific rooms
-	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/clean-rooms", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.post<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/clean-rooms",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (user.role !== "admin") {
-			return reply.status(403).send({ error: "Admin access required" });
-		}
+			if (user.role !== "admin") {
+				return reply.status(403).send({ error: "Admin access required" });
+			}
 
-		try {
-			const body = roomCleanSchema.parse(request.body);
-			const success = await roborockService.cleanRooms(
-				user.id,
-				deviceId,
-				body.roomIds,
-			);
+			try {
+				const body = roomCleanSchema.parse(request.body);
+				const success = await roborockService.cleanRooms(
+					user.id,
+					deviceId,
+					body.roomIds,
+				);
 
-			if (!success) {
+				if (!success) {
+					return reply
+						.status(500)
+						.send({ error: "Failed to start room cleaning" });
+				}
+
+				return { success: true };
+			} catch (error: unknown) {
+				if (isZodError(error)) {
+					return reply
+						.status(400)
+						.send({ error: "Validation failed", details: error.issues });
+				}
 				return reply
 					.status(500)
 					.send({ error: "Failed to start room cleaning" });
 			}
-
-			return { success: true };
-		} catch (error: unknown) {
-			if (isZodError(error)) {
-				return reply
-					.status(400)
-					.send({ error: "Validation failed", details: error.issues });
-			}
-			return reply.status(500).send({ error: "Failed to start room cleaning" });
-		}
-	});
+		},
+	);
 
 	// Get cleaning history
-	fastify.get<{ Params: DeviceIdParams }>("/devices/:deviceId/history", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.get<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/history",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (!roborockService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Roborock" });
-		}
+			if (!roborockService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Roborock" });
+			}
 
-		const history = await roborockService.getCleanHistory(user.id, deviceId);
-		return { history };
-	});
+			const history = await roborockService.getCleanHistory(user.id, deviceId);
+			return { history };
+		},
+	);
 
 	// Get map (if available)
-	fastify.get<{ Params: DeviceIdParams }>("/devices/:deviceId/map", async (request, reply) => {
-		const user = getUser(request);
-		const { deviceId } = request.params;
+	fastify.get<{ Params: DeviceIdParams }>(
+		"/devices/:deviceId/map",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
-		if (!roborockService.isConnected(user.id)) {
-			return reply.status(401).send({ error: "Not connected to Roborock" });
-		}
+			if (!roborockService.isConnected(user.id)) {
+				return reply.status(401).send({ error: "Not connected to Roborock" });
+			}
 
-		const map = await roborockService.getMap(user.id, deviceId);
-		if (!map) {
-			return reply.status(404).send({ error: "Map not available" });
-		}
+			const map = await roborockService.getMap(user.id, deviceId);
+			if (!map) {
+				return reply.status(404).send({ error: "Map not available" });
+			}
 
-		return { map };
-	});
+			return { map };
+		},
+	);
 }

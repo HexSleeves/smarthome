@@ -1,8 +1,8 @@
 import { Bell } from "lucide-react";
-import { useRingStatus, useRingDevices } from "@/hooks";
-import { useAuthStore } from "@/stores/auth";
-import { EmptyState, PageSpinner } from "@/components/ui";
 import { DoorbellDevice } from "@/components/domain/doorbell";
+import { EmptyState, PageSpinner } from "@/components/ui";
+import { useRingDevices, useRingStatus } from "@/hooks";
+import { useAuthStore } from "@/stores/auth";
 
 export function DoorbellPage() {
 	const { user } = useAuthStore();

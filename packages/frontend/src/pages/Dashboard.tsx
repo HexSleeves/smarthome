@@ -1,11 +1,11 @@
-import { ConnectionStatus } from "@/components/ui";
 import {
 	DashboardStats,
-	VacuumSection,
 	DoorbellSection,
 	LiveEvents,
 	RecentActivity,
+	VacuumSection,
 } from "@/components/domain/dashboard";
+import { ConnectionStatus } from "@/components/ui";
 import { useWebSocketConnection } from "@/hooks";
 
 export function DashboardPage() {

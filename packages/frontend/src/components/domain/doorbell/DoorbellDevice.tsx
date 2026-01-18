@@ -1,9 +1,9 @@
-import { Battery, Bell, Camera } from "lucide-react";
 import type { RingDeviceState } from "@smarthome/shared";
-import { DoorbellSnapshot } from "./DoorbellSnapshot";
+import { Battery, Bell, Camera } from "lucide-react";
 import { DoorbellControls } from "./DoorbellControls";
 import { DoorbellHistory } from "./DoorbellHistory";
 import { DoorbellNotifications } from "./DoorbellNotifications";
+import { DoorbellSnapshot } from "./DoorbellSnapshot";
 
 type DoorbellDeviceProps = {
 	device: RingDeviceState;

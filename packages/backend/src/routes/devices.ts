@@ -159,17 +159,20 @@ export async function deviceRoutes(fastify: FastifyInstance) {
 	});
 
 	// Get recent events across all devices
-	fastify.get<{ Querystring: LimitQuery }>("/events/recent", async (request) => {
-		const user = getUser(request);
-		const { limit = 20 } = request.query;
+	fastify.get<{ Querystring: LimitQuery }>(
+		"/events/recent",
+		async (request) => {
+			const user = getUser(request);
+			const { limit = 20 } = request.query;
 
-		const events = eventQueries.findRecent.all(user.id, Math.min(limit, 100));
+			const events = eventQueries.findRecent.all(user.id, Math.min(limit, 100));
 
-		return {
-			events: events.map((e) => ({
-				...e,
-				data: JSON.parse(e.data || "{}") as Record<string, unknown>,
-			})),
-		};
-	});
+			return {
+				events: events.map((e) => ({
+					...e,
+					data: JSON.parse(e.data || "{}") as Record<string, unknown>,
+				})),
+			};
+		},
+	);
 }

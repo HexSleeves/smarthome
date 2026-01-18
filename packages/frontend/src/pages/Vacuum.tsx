@@ -1,8 +1,8 @@
 import { Wind } from "lucide-react";
-import { useRoborockStatus, useRoborockDevices } from "@/hooks";
-import { useAuthStore } from "@/stores/auth";
-import { EmptyState, PageSpinner } from "@/components/ui";
 import { VacuumDevice } from "@/components/domain/vacuum";
+import { EmptyState, PageSpinner } from "@/components/ui";
+import { useRoborockDevices, useRoborockStatus } from "@/hooks";
+import { useAuthStore } from "@/stores/auth";
 
 export function VacuumPage() {
 	const { user } = useAuthStore();

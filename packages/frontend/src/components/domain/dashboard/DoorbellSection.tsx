@@ -1,8 +1,8 @@
 import { Bell } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useDevicesByType, useRingStatus } from "@/hooks";
 import { DoorbellCard } from "@/components/domain/doorbell";
 import { EmptyState } from "@/components/ui";
+import { useDevicesByType, useRingStatus } from "@/hooks";
 
 export function DoorbellSection() {
 	const { connected, hasCredentials } = useRingStatus();

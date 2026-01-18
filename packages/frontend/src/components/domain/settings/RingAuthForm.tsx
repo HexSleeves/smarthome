@@ -1,6 +1,6 @@
+import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "@tanstack/react-form";
 import { FieldError } from "@/components/ui";
 
 type RingAuthFormProps = {

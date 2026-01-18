@@ -1,5 +1,5 @@
-import { trpc } from "@/lib/trpc/client";
 import type { RoborockFanSpeed, RoborockWaterLevel } from "@smarthome/shared";
+import { trpc } from "@/lib/trpc/client";
 
 export function useRoborockStatus() {
 	const { data, isLoading, error } = trpc.roborock.status.useQuery();

@@ -1,7 +1,7 @@
 import {
 	AccountInfo,
-	RoborockSettings,
 	RingSettings,
+	RoborockSettings,
 } from "@/components/domain/settings";
 
 export function SettingsPage() {

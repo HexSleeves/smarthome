@@ -1,45 +1,62 @@
-## Smart Home Backend - Tests Complete ✅
+## Ring Doorbell Live Streaming - In Progress
 
-### Summary
-Added comprehensive tests for the smart home backend covering:
+### Current Status
+WebRTC streaming infrastructure is built but Ring API is returning 500 errors.
 
-1. **Crypto utilities** (`crypto.test.ts` - 8 tests)
-   - Encrypt/decrypt round-trip
-   - Random IV/salt produces unique ciphertext
-   - Unicode and special character handling
-   - Empty string and large data handling
-   - Decryption failures with wrong key, tampered data, malformed input
+### What's Done
+1. **Backend** (`packages/backend/src/services/ring.ts`)
+   - Added `startWebRtcSession()` using ring-client-api's `SimpleWebRtcSession`
+   - Added `stopWebRtcSession()` and `activateCameraSpeaker()`
+   - Session management with cleanup on shutdown
 
-2. **Database queries** (`queries.test.ts` - 14 tests)
-   - User creation and lookup (by email, by id)
-   - Unique email constraint enforcement
-   - User listing
-   - Device credentials CRUD and upsert behavior
-   - Session creation, lookup, and deletion
-   - Device creation and type-based queries
+2. **Backend tRPC endpoints** (`packages/backend/src/trpc/routers/ring.ts`)
+   - `ring.startStream` - Takes SDP offer, returns SDP answer
+   - `ring.stopStream` - Ends streaming session
+   - `ring.activateSpeaker` - Enables two-way audio
 
-3. **Auth flow** (`auth.test.ts` - 14 tests)
-   - Register: creates user, returns tokens, rejects duplicate/invalid input
-   - Login: valid credentials, invalid password, non-existent user
-   - Refresh: valid token works, invalid token rejected
-   - Protected routes: valid token works, no token/invalid/expired rejected
-   - Logout: invalidates refresh token
+3. **Frontend** (`packages/frontend/src/hooks/useRingStream.ts`)
+   - WebRTC peer connection management
+   - SDP offer generation with STUN servers
+   - ICE candidate gathering
+   - State management (idle/connecting/streaming/error)
 
-### Test Infrastructure
-- **Vitest** for test runner
-- **In-memory SQLite** for isolated DB tests
-- **superjson** aware tRPC test client
-- Tests run in ~6 seconds
-- All 36 tests passing
+4. **UI** (`packages/frontend/src/components/domain/doorbell/`)
+   - `DoorbellLiveStream.tsx` - Live streaming component with play/stop/retry
+   - `DoorbellDevice.tsx` - Tabs for Live Stream vs Snapshot view
 
-### Commands
-```bash
-npm run test -w @smarthome/backend   # Run all tests
-npm run test:watch -w @smarthome/backend  # Watch mode
-npm run build -w @smarthome/backend  # Build (includes type checking)
+### Current Issue
+Ring's API (`api.ring.com/integrations/v1/liveview/start`) returns HTTP 500:
+```
+error_code: 'INTERNAL_ERROR'
 ```
 
-### Next Steps (if needed)
-- Add integration tests for Ring/Roborock services (would require mocking their APIs)
-- Add E2E tests with real database
-- Add test coverage reporting
+### Possible Causes
+1. Ring may have changed/deprecated this API endpoint
+2. Device may not support WebRTC streaming via this method
+3. SDP format may need specific modifications for Ring
+4. May need additional authentication or headers
+
+### Alternative Approaches to Try
+1. **Use `streamVideo()` with ffmpeg** - Transcode WebRTC to HLS on server
+2. **Use on-device recording** - Fetch recorded clips instead of live stream  
+3. **Check ring-client-api GitHub issues** for known WebRTC problems
+4. **Use RTSP** if the doorbell supports it (some Ring devices do)
+
+### Testing
+```bash
+# Start the app
+sudo systemctl restart smarthome
+
+# View logs
+sudo journalctl -u smarthome -f
+
+# Access at
+http://localhost:3000/doorbell
+```
+
+### Files Changed
+- `packages/backend/src/services/ring.ts` - WebRTC session methods
+- `packages/backend/src/trpc/routers/ring.ts` - Stream endpoints
+- `packages/frontend/src/hooks/useRingStream.ts` - WebRTC hook
+- `packages/frontend/src/components/domain/doorbell/DoorbellLiveStream.tsx`
+- `packages/frontend/src/components/domain/doorbell/DoorbellDevice.tsx`

@@ -79,4 +79,60 @@ export const ringRouter = router({
 			await ringService.triggerSiren(ctx.user.id, input.deviceId);
 			return { success: true };
 		}),
+
+	// WebRTC streaming endpoints
+	startStream: protectedProcedure
+		.input(
+			z.object({
+				deviceId: z.string(),
+				sdpOffer: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const result = await ringService.startWebRtcSession(
+				ctx.user.id,
+				input.deviceId,
+				input.sdpOffer,
+			);
+			if (!result) {
+				return { success: false, error: "Failed to start stream" };
+			}
+			return {
+				success: true,
+				sessionId: result.sessionId,
+				sdpAnswer: result.sdpAnswer,
+			};
+		}),
+
+	stopStream: protectedProcedure
+		.input(
+			z.object({
+				deviceId: z.string(),
+				sessionId: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const success = await ringService.stopWebRtcSession(
+				ctx.user.id,
+				input.deviceId,
+				input.sessionId,
+			);
+			return { success };
+		}),
+
+	activateSpeaker: protectedProcedure
+		.input(
+			z.object({
+				deviceId: z.string(),
+				sessionId: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const success = await ringService.activateCameraSpeaker(
+				ctx.user.id,
+				input.deviceId,
+				input.sessionId,
+			);
+			return { success };
+		}),
 });

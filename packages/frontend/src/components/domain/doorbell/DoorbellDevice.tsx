@@ -1,7 +1,9 @@
 import type { RingDeviceState } from "@smarthome/shared";
 import { Battery, Bell, Camera } from "lucide-react";
+import { useState } from "react";
 import { DoorbellControls } from "./DoorbellControls";
 import { DoorbellHistory } from "./DoorbellHistory";
+import { DoorbellLiveStream } from "./DoorbellLiveStream";
 import { DoorbellNotifications } from "./DoorbellNotifications";
 import { DoorbellSnapshot } from "./DoorbellSnapshot";
 
@@ -11,6 +13,8 @@ type DoorbellDeviceProps = {
 };
 
 export function DoorbellDevice({ device, isAdmin }: DoorbellDeviceProps) {
+	const [viewMode, setViewMode] = useState<"live" | "snapshot">("live");
+
 	return (
 		<div className="card overflow-hidden">
 			{/* Header */}
@@ -49,8 +53,38 @@ export function DoorbellDevice({ device, isAdmin }: DoorbellDeviceProps) {
 			{/* Live Notifications */}
 			<DoorbellNotifications deviceId={device.id} />
 
-			{/* Snapshot */}
-			<DoorbellSnapshot deviceId={device.id} />
+			{/* View Mode Toggle */}
+			<div className="flex border-b border-gray-200 dark:border-gray-700">
+				<button
+					type="button"
+					onClick={() => setViewMode("live")}
+					className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+						viewMode === "live"
+							? "text-primary-600 border-b-2 border-primary-600 bg-primary-50 dark:bg-primary-900/20"
+							: "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+					}`}
+				>
+					Live Stream
+				</button>
+				<button
+					type="button"
+					onClick={() => setViewMode("snapshot")}
+					className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+						viewMode === "snapshot"
+							? "text-primary-600 border-b-2 border-primary-600 bg-primary-50 dark:bg-primary-900/20"
+							: "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+					}`}
+				>
+					Snapshot
+				</button>
+			</div>
+
+			{/* Video View */}
+			{viewMode === "live" ? (
+				<DoorbellLiveStream deviceId={device.id} />
+			) : (
+				<DoorbellSnapshot deviceId={device.id} />
+			)}
 
 			{/* Controls & History */}
 			<div className="p-6 space-y-6">

@@ -35,11 +35,20 @@ interface Pending2FASession {
 
 const TWO_FA_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
+// SimpleWebRtcSession type from ring-client-api
+interface WebRtcSession {
+	sessionId: string;
+	start(sdp: string): Promise<string>;
+	end(): Promise<unknown>;
+	activateCameraSpeaker(): Promise<void>;
+}
+
 class RingService extends EventEmitter {
 	private readonly apiInstances = new Map<string, RingApi>();
 	private readonly cameras = new Map<string, RingCamera>();
 	private readonly deviceStates = new Map<string, RingDeviceState>();
 	private readonly pending2FA = new Map<string, Pending2FASession>();
+	private readonly activeSessions = new Map<string, WebRtcSession>();
 
 	async authenticate(
 		userId: string,
@@ -396,7 +405,95 @@ class RingService extends EventEmitter {
 		return undefined;
 	}
 
+	/**
+	 * Start a WebRTC streaming session.
+	 * Takes an SDP offer from the browser and returns an SDP answer.
+	 */
+	async startWebRtcSession(
+		userId: string,
+		deviceId: string,
+		sdpOffer: string,
+	): Promise<{ sessionId: string; sdpAnswer: string } | null> {
+		const camera = this.cameras.get(`${userId}:${deviceId}`);
+		if (!camera) {
+			console.error(`Camera not found for user ${userId}, device ${deviceId}`);
+			return null;
+		}
+
+		try {
+			// Create a simple WebRTC session (designed for browser use)
+			const session = await camera.createSimpleWebRtcSession();
+			const sessionKey = `${userId}:${deviceId}:${session.sessionId}`;
+
+			// Store the session for later cleanup
+			this.activeSessions.set(sessionKey, session);
+
+			// Start the session with the browser's SDP offer and get the answer
+			const sdpAnswer = await session.start(sdpOffer);
+
+			return { sessionId: session.sessionId, sdpAnswer };
+		} catch (error) {
+			console.error("Failed to start WebRTC session:", error);
+			return null;
+		}
+	}
+
+	/**
+	 * Stop a WebRTC streaming session
+	 */
+	async stopWebRtcSession(
+		userId: string,
+		deviceId: string,
+		sessionId: string,
+	): Promise<boolean> {
+		const sessionKey = `${userId}:${deviceId}:${sessionId}`;
+		const session = this.activeSessions.get(sessionKey);
+
+		if (!session) {
+			return false;
+		}
+
+		try {
+			await session.end();
+			this.activeSessions.delete(sessionKey);
+			return true;
+		} catch (error) {
+			console.error("Failed to stop WebRTC session:", error);
+			this.activeSessions.delete(sessionKey);
+			return false;
+		}
+	}
+
+	/**
+	 * Activate the camera speaker for two-way audio
+	 */
+	async activateCameraSpeaker(
+		userId: string,
+		deviceId: string,
+		sessionId: string,
+	): Promise<boolean> {
+		const sessionKey = `${userId}:${deviceId}:${sessionId}`;
+		const session = this.activeSessions.get(sessionKey);
+
+		if (!session) {
+			return false;
+		}
+
+		try {
+			await session.activateCameraSpeaker();
+			return true;
+		} catch (error) {
+			console.error("Failed to activate camera speaker:", error);
+			return false;
+		}
+	}
+
 	shutdown(): void {
+		// End all active streaming sessions
+		for (const session of this.activeSessions.values()) {
+			session.end().catch(() => {});
+		}
+		this.activeSessions.clear();
 		this.apiInstances.clear();
 		this.cameras.clear();
 		this.deviceStates.clear();

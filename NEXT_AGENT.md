@@ -1,68 +1,45 @@
-## Smart Home Backend - Add Core Tests
+## Smart Home Backend - Tests Complete ✅
 
-### Context
-This is a **Fastify + tRPC + TypeScript** smart home API that integrates with Ring (doorbells/cameras) and Roborock (vacuums). The codebase has been cleaned up and all routes use tRPC except for one REST endpoint (Ring snapshot for `<img src>`).
+### Summary
+Added comprehensive tests for the smart home backend covering:
 
-### Task: Add Tests for Core Functionality
+1. **Crypto utilities** (`crypto.test.ts` - 8 tests)
+   - Encrypt/decrypt round-trip
+   - Random IV/salt produces unique ciphertext
+   - Unicode and special character handling
+   - Empty string and large data handling
+   - Decryption failures with wrong key, tampered data, malformed input
 
-Add focused tests for critical paths only. Don't over-test - focus on:
+2. **Database queries** (`queries.test.ts` - 14 tests)
+   - User creation and lookup (by email, by id)
+   - Unique email constraint enforcement
+   - User listing
+   - Device credentials CRUD and upsert behavior
+   - Session creation, lookup, and deletion
+   - Device creation and type-based queries
 
-1. **Auth flow** (most critical)
-   - Register creates user, returns tokens
-   - Login with valid/invalid credentials
-   - Refresh token works
-   - Protected routes reject without token
+3. **Auth flow** (`auth.test.ts` - 14 tests)
+   - Register: creates user, returns tokens, rejects duplicate/invalid input
+   - Login: valid credentials, invalid password, non-existent user
+   - Refresh: valid token works, invalid token rejected
+   - Protected routes: valid token works, no token/invalid/expired rejected
+   - Logout: invalidates refresh token
 
-2. **Crypto utilities**
-   - Encrypt/decrypt round-trip works
-   - Decryption fails with wrong key
-
-3. **Database queries**
-   - User creation and lookup
-   - Credentials save/retrieve
-
-### Setup Requirements
-
-```bash
-# Install Vitest
-npm install -D vitest @vitest/coverage-v8 -w @smarthome/backend
-
-# Add to packages/backend/package.json scripts:
-"test": "vitest run",
-"test:watch": "vitest"
-```
-
-### Test Structure
-```
-packages/backend/src/
-  __tests__/
-    auth.test.ts      # tRPC auth router tests
-    crypto.test.ts    # encrypt/decrypt tests
-    queries.test.ts   # DB query tests
-  test-utils.ts       # Shared setup (in-memory DB, test app)
-```
-
-### Key Considerations
-
-- Use **in-memory SQLite** for tests (`:memory:`)
-- Create a test Fastify app with tRPC registered
-- Mock external services (Ring, Roborock) - don't test their integration
-- Keep tests fast and focused
-
-### Files to Reference
-- `packages/backend/src/trpc/routers/auth.ts` - Auth endpoints to test
-- `packages/backend/src/lib/crypto.ts` - Crypto functions
-- `packages/backend/src/db/queries.ts` - DB queries
-- `packages/backend/src/db/schema.ts` - DB schema
+### Test Infrastructure
+- **Vitest** for test runner
+- **In-memory SQLite** for isolated DB tests
+- **superjson** aware tRPC test client
+- Tests run in ~6 seconds
+- All 36 tests passing
 
 ### Commands
 ```bash
-npm run build -w @smarthome/backend  # Must pass before tests
-npm run test -w @smarthome/backend   # Run tests
+npm run test -w @smarthome/backend   # Run all tests
+npm run test:watch -w @smarthome/backend  # Watch mode
+npm run build -w @smarthome/backend  # Build (includes type checking)
 ```
 
-### Constraints
-- No `any` types
-- Tests should run in <10 seconds
-- Don't mock what you can test directly (crypto, DB queries)
-- Do mock external APIs (Ring, Roborock)
+### Next Steps (if needed)
+- Add integration tests for Ring/Roborock services (would require mocking their APIs)
+- Add E2E tests with real database
+- Add test coverage reporting

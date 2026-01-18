@@ -9,8 +9,9 @@ import {
 } from "../db/queries.js";
 import { decrypt, encrypt } from "../lib/crypto.js";
 
-const ENCRYPTION_SECRET =
-	process.env.ENCRYPTION_SECRET || "dev-secret-change-in-production";
+import { config } from "../config.js";
+
+const ENCRYPTION_SECRET = config.ENCRYPTION_SECRET;
 
 interface RingCredentials {
 	refreshToken: string;
@@ -477,6 +478,28 @@ class RingService extends EventEmitter {
 			}
 		}
 	}
+
+	/**
+	 * Get device state by device ID (for tRPC router)
+	 */
+	getDeviceState(deviceId: string): RingDeviceState | undefined {
+		for (const [, state] of this.deviceStates.entries()) {
+			if (state.id === deviceId) {
+				return state;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Graceful shutdown - clear all state
+	 */
+	shutdown(): void {
+		this.apiInstances.clear();
+		this.cameras.clear();
+		this.deviceStates.clear();
+		this.pending2FA.clear();
+	}
 }
 
 export const ringService = new RingService();
@@ -485,10 +508,5 @@ export const ringService = new RingService();
 export function getRingLiveState(
 	deviceId: string,
 ): RingDeviceState | undefined {
-	for (const [key, state] of ringService["deviceStates"].entries()) {
-		if (state.id === deviceId) {
-			return state;
-		}
-	}
-	return undefined;
+	return ringService.getDeviceState(deviceId);
 }

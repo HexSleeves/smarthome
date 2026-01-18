@@ -9,8 +9,9 @@ import {
 } from "../db/queries.js";
 import crypto from "node:crypto";
 
-const ENCRYPTION_SECRET =
-	process.env.ENCRYPTION_SECRET || "dev-secret-change-in-production";
+import { config } from "../config.js";
+
+const ENCRYPTION_SECRET = config.ENCRYPTION_SECRET;
 
 // Roborock Cloud API endpoints
 const ROBOROCK_API_BASE = "https://usiot.roborock.com";
@@ -523,6 +524,29 @@ class RoborockService extends EventEmitter {
 			}
 		}
 	}
+
+	/**
+	 * Get device state by device ID (for tRPC router)
+	 */
+	getDeviceState(deviceId: string): RoborockDeviceState | undefined {
+		for (const [, state] of this.deviceStates.entries()) {
+			if (state.id === deviceId) {
+				return state;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Graceful shutdown - stop all polling and clear state
+	 */
+	shutdown(): void {
+		for (const userId of this.pollingIntervals.keys()) {
+			this.stopPolling(userId);
+		}
+		this.credentials.clear();
+		this.deviceStates.clear();
+	}
 }
 
 export const roborockService = new RoborockService();
@@ -531,11 +555,5 @@ export const roborockService = new RoborockService();
 export function getRoborockLiveState(
 	deviceId: string,
 ): RoborockDeviceState | undefined {
-	// Check all user states for this device
-	for (const [key, state] of roborockService["deviceStates"].entries()) {
-		if (state.id === deviceId) {
-			return state;
-		}
-	}
-	return undefined;
+	return roborockService.getDeviceState(deviceId);
 }

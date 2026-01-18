@@ -79,13 +79,15 @@ class RingService extends EventEmitter {
 				`Ring auth attempt for ${authEmail}, 2FA code: ${twoFactorCode ? "provided" : "not provided"}`,
 			);
 
+			// RingApi types only expose RefreshTokenAuth, but the underlying
+			// RingRestClient supports email/password auth. Use type assertion
+			// to bypass the type restriction.
 			const api = new RingApi({
 				email: authEmail,
 				password: authPassword,
-			});
+			} as Parameters<typeof RingApi>[0]);
 
-			// If we have a 2FA code, we need to call getAuth directly with the code
-			// before calling getLocations, otherwise the code won't be sent
+			// If we have a 2FA code, authenticate with it
 			if (twoFactorCode) {
 				console.log("Calling restClient.getAuth with 2FA code...");
 				await api.restClient.getAuth(twoFactorCode);
@@ -124,8 +126,7 @@ class RingService extends EventEmitter {
 
 			return { success: true };
 		} catch (error: unknown) {
-			const errorMsg =
-				error instanceof Error ? error.message : "Unknown error";
+			const errorMsg = error instanceof Error ? error.message : "Unknown error";
 			console.log("Ring auth error message:", errorMsg);
 
 			// Check if it's an invalid 2FA code (status 400 with "Verification Code" error)

@@ -1,8 +1,31 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { credentialQueries } from "../db/queries.js";
 import type { AuthUser } from "../middleware/auth.js";
 import { ringService } from "../services/ring.js";
+import { isZodError, type JwtPayload } from "../types.js";
+
+// Route type definitions
+interface DeviceIdParams {
+	deviceId: string;
+}
+
+interface TokenQuery {
+	token?: string;
+}
+
+interface LimitQuery {
+	limit?: number;
+}
+
+interface LightBody {
+	on: boolean;
+}
+
+// Helper to get typed user from request
+function getUser(request: FastifyRequest): AuthUser {
+	return request.user as AuthUser;
+}
 
 const authSchema = z.object({
 	email: z.string().email().optional(),
@@ -20,7 +43,7 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 	// Check connection status
 	fastify.get("/status", async (request) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 		const connected = ringService.isConnected(user.id);
 		const hasCredentials = !!credentialQueries.findByProvider.get(
 			user.id,
@@ -33,7 +56,7 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 	// Authenticate with Ring (initial login)
 	fastify.post("/auth", async (request, reply) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 
 		try {
 			const body = authSchema.parse(request.body);
@@ -81,12 +104,14 @@ export async function ringRoutes(fastify: FastifyInstance) {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			console.error("Route catch block - error:", error.message || error);
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
+			console.error("Route catch block - error:", message);
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Validation failed", details: error.errors });
+					.send({ error: "Validation failed", details: error.issues });
 			}
 			return reply.status(500).send({ error: "Authentication failed" });
 		}
@@ -94,7 +119,7 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 	// Submit 2FA code (after initial auth triggered SMS)
 	fastify.post("/auth/2fa", async (request, reply) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 
 		try {
 			const body = twoFactorSchema.parse(request.body);
@@ -123,8 +148,8 @@ export async function ringRoutes(fastify: FastifyInstance) {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply.status(400).send({ error: "Invalid code format" });
 			}
 			return reply.status(500).send({ error: "Verification failed" });
@@ -133,14 +158,14 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 	// Cancel pending 2FA
 	fastify.post("/auth/2fa/cancel", async (request) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 		ringService.cancelPending2FA(user.id);
 		return { success: true };
 	});
 
 	// Connect with stored credentials
 	fastify.post("/connect", async (request, reply) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 
 		const success = await ringService.connectWithStoredCredentials(user.id);
 		if (!success) {
@@ -154,14 +179,14 @@ export async function ringRoutes(fastify: FastifyInstance) {
 
 	// Disconnect
 	fastify.post("/disconnect", async (request) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 		ringService.disconnect(user.id);
 		return { success: true };
 	});
 
 	// Get all Ring devices
 	fastify.get("/devices", async (request, reply) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 
 		if (!ringService.isConnected(user.id)) {
 			// Try to reconnect
@@ -176,20 +201,20 @@ export async function ringRoutes(fastify: FastifyInstance) {
 	});
 
 	// Get device snapshot - special handling for token in query string (for img src)
-	fastify.get(
+	fastify.get<{ Params: DeviceIdParams; Querystring: TokenQuery }>(
 		"/devices/:deviceId/snapshot",
 		{
 			// Skip the normal auth hook - we'll handle it manually
 			preHandler: async (request, reply) => {
 				// Try to get token from query string first (for img src URLs)
-				const { token } = request.query as { token?: string };
+				const { token } = request.query;
 
 				if (token) {
 					try {
-						const decoded = fastify.jwt.verify(token) as AuthUser;
+						const decoded = fastify.jwt.verify<JwtPayload>(token);
 						request.user = decoded;
 						return;
-					} catch (err) {
+					} catch (_err) {
 						return reply.status(401).send({ error: "Invalid token" });
 					}
 				}
@@ -197,14 +222,14 @@ export async function ringRoutes(fastify: FastifyInstance) {
 				// Fall back to Authorization header
 				try {
 					await request.jwtVerify();
-				} catch (err) {
+				} catch (_err) {
 					return reply.status(401).send({ error: "Unauthorized" });
 				}
 			},
 		},
 		async (request, reply) => {
-			const user = request.user as AuthUser;
-			const { deviceId } = request.params as { deviceId: string };
+			const user = getUser(request);
+			const { deviceId } = request.params;
 
 			if (!ringService.isConnected(user.id)) {
 				return reply.status(401).send({ error: "Not connected to Ring" });
@@ -222,9 +247,9 @@ export async function ringRoutes(fastify: FastifyInstance) {
 	);
 
 	// Get live stream URL
-	fastify.get("/devices/:deviceId/stream", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.get<{ Params: DeviceIdParams }>("/devices/:deviceId/stream", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (!ringService.isConnected(user.id)) {
 			return reply.status(401).send({ error: "Not connected to Ring" });
@@ -239,10 +264,10 @@ export async function ringRoutes(fastify: FastifyInstance) {
 	});
 
 	// Get event history
-	fastify.get("/devices/:deviceId/history", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
-		const { limit = 20 } = request.query as { limit?: number };
+	fastify.get<{ Params: DeviceIdParams; Querystring: LimitQuery }>("/devices/:deviceId/history", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
+		const { limit = 20 } = request.query;
 
 		if (!ringService.isConnected(user.id)) {
 			return reply.status(401).send({ error: "Not connected to Ring" });
@@ -257,10 +282,10 @@ export async function ringRoutes(fastify: FastifyInstance) {
 	});
 
 	// Toggle light
-	fastify.post("/devices/:deviceId/light", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
-		const { on } = request.body as { on: boolean };
+	fastify.post<{ Params: DeviceIdParams; Body: LightBody }>("/devices/:deviceId/light", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
+		const { on } = request.body;
 
 		if (user.role !== "admin") {
 			return reply.status(403).send({ error: "Admin access required" });
@@ -279,9 +304,9 @@ export async function ringRoutes(fastify: FastifyInstance) {
 	});
 
 	// Trigger siren
-	fastify.post("/devices/:deviceId/siren", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/siren", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (user.role !== "admin") {
 			return reply.status(403).send({ error: "Admin access required" });

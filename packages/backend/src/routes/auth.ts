@@ -4,6 +4,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { createUser, sessionQueries, userQueries } from "../db/queries.js";
 import type { AuthUser } from "../middleware/auth.js";
+import { isZodError } from "../types.js";
 
 const registerSchema = z.object({
 	email: z.string().email(),
@@ -69,11 +70,11 @@ export async function authRoutes(fastify: FastifyInstance) {
 				accessToken,
 				refreshToken,
 			};
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Validation failed", details: error.errors });
+					.send({ error: "Validation failed", details: error.issues });
 			}
 			console.error("Register error:", error);
 			return reply.status(500).send({ error: "Registration failed" });
@@ -128,11 +129,11 @@ export async function authRoutes(fastify: FastifyInstance) {
 				accessToken,
 				refreshToken,
 			};
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Validation failed", details: error.errors });
+					.send({ error: "Validation failed", details: error.issues });
 			}
 			console.error("Login error:", error);
 			return reply.status(500).send({ error: "Login failed" });

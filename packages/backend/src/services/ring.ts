@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { RingApi, type RingCamera } from "ring-client-api";
+import { config } from "../config.js";
 import {
 	createDevice,
 	createEvent,
@@ -8,8 +9,7 @@ import {
 	saveCredentials,
 } from "../db/queries.js";
 import { decrypt, encrypt } from "../lib/crypto.js";
-
-import { config } from "../config.js";
+import type { RingEventPayload } from "../types.js";
 
 const ENCRYPTION_SECRET = config.ENCRYPTION_SECRET;
 
@@ -123,8 +123,9 @@ class RingService extends EventEmitter {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			const errorMsg = error.message || "";
+		} catch (error: unknown) {
+			const errorMsg =
+				error instanceof Error ? error.message : "Unknown error";
 			console.log("Ring auth error message:", errorMsg);
 
 			// Check if it's an invalid 2FA code (status 400 with "Verification Code" error)
@@ -402,7 +403,7 @@ class RingService extends EventEmitter {
 
 	subscribeToEvents(
 		userId: string,
-		callback: (event: any) => void,
+		callback: (event: RingEventPayload) => void,
 	): () => void {
 		const unsubscribers: (() => void)[] = [];
 

@@ -1,11 +1,11 @@
-import { z } from "zod";
-import { router, protectedProcedure, adminProcedure } from "../trpc.js";
-import { roborockService } from "../../services/roborock.js";
-import { hasCredentials } from "../../db/queries.js";
 import type {
-	RoborockStatusResponse,
 	RoborockDevicesResponse,
+	RoborockStatusResponse,
 } from "@smarthome/shared";
+import { z } from "zod";
+import { hasCredentials } from "../../db/queries.js";
+import { roborockService } from "../../services/roborock.js";
+import { adminProcedure, protectedProcedure, router } from "../trpc.js";
 
 export const roborockRouter = router({
 	status: protectedProcedure.query(
@@ -25,7 +25,7 @@ export const roborockRouter = router({
 	),
 
 	auth: adminProcedure
-		.input(z.object({ email: z.string().email(), password: z.string() }))
+		.input(z.object({ email: z.email(), password: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			await roborockService.authenticate(
 				ctx.user.id,

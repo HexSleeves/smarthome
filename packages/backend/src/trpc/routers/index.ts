@@ -1,7 +1,7 @@
 import { router } from "../trpc.js";
 import { deviceRouter } from "./device.js";
-import { roborockRouter } from "./roborock.js";
 import { ringRouter } from "./ring.js";
+import { roborockRouter } from "./roborock.js";
 
 export const appRouter = router({
 	device: deviceRouter,

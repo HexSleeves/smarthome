@@ -1,8 +1,19 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { credentialQueries } from "../db/queries.js";
 import type { AuthUser } from "../middleware/auth.js";
 import { roborockService } from "../services/roborock.js";
+import { isZodError } from "../types.js";
+
+// Route type definitions
+interface DeviceIdParams {
+	deviceId: string;
+}
+
+// Helper to get typed user from request
+function getUser(request: FastifyRequest): AuthUser {
+	return request.user as AuthUser;
+}
 
 const authSchema = z.object({
 	email: z.string().email(),
@@ -31,7 +42,7 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 
 	// Check connection status
 	fastify.get("/status", async (request) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 		const connected = roborockService.isConnected(user.id);
 		const hasCredentials = !!credentialQueries.findByProvider.get(
 			user.id,
@@ -43,7 +54,7 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 
 	// Authenticate with Roborock
 	fastify.post("/auth", async (request, reply) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 
 		try {
 			const body = authSchema.parse(request.body);
@@ -58,11 +69,11 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Validation failed", details: error.errors });
+					.send({ error: "Validation failed", details: error.issues });
 			}
 			return reply.status(500).send({ error: "Authentication failed" });
 		}
@@ -70,7 +81,7 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 
 	// Connect with stored credentials
 	fastify.post("/connect", async (request, reply) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 
 		const success = await roborockService.connectWithStoredCredentials(user.id);
 		if (!success) {
@@ -84,14 +95,14 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 
 	// Disconnect
 	fastify.post("/disconnect", async (request) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 		roborockService.disconnect(user.id);
 		return { success: true };
 	});
 
 	// Get all Roborock devices
 	fastify.get("/devices", async (request, reply) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 
 		if (!roborockService.isConnected(user.id)) {
 			// Try to reconnect
@@ -108,9 +119,9 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 	});
 
 	// Send command to device
-	fastify.post("/devices/:deviceId/command", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/command", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (user.role !== "admin") {
 			return reply
@@ -149,20 +160,20 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Invalid command", details: error.errors });
+					.send({ error: "Invalid command", details: error.issues });
 			}
 			return reply.status(500).send({ error: "Command failed" });
 		}
 	});
 
 	// Set fan speed
-	fastify.post("/devices/:deviceId/fan-speed", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/fan-speed", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (user.role !== "admin") {
 			return reply.status(403).send({ error: "Admin access required" });
@@ -181,20 +192,20 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Validation failed", details: error.errors });
+					.send({ error: "Validation failed", details: error.issues });
 			}
 			return reply.status(500).send({ error: "Failed to set fan speed" });
 		}
 	});
 
 	// Set water level
-	fastify.post("/devices/:deviceId/water-level", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/water-level", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (user.role !== "admin") {
 			return reply.status(403).send({ error: "Admin access required" });
@@ -213,20 +224,20 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Validation failed", details: error.errors });
+					.send({ error: "Validation failed", details: error.issues });
 			}
 			return reply.status(500).send({ error: "Failed to set water level" });
 		}
 	});
 
 	// Clean specific rooms
-	fastify.post("/devices/:deviceId/clean-rooms", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.post<{ Params: DeviceIdParams }>("/devices/:deviceId/clean-rooms", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (user.role !== "admin") {
 			return reply.status(403).send({ error: "Admin access required" });
@@ -247,20 +258,20 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 			}
 
 			return { success: true };
-		} catch (error: any) {
-			if (error instanceof z.ZodError) {
+		} catch (error: unknown) {
+			if (isZodError(error)) {
 				return reply
 					.status(400)
-					.send({ error: "Validation failed", details: error.errors });
+					.send({ error: "Validation failed", details: error.issues });
 			}
 			return reply.status(500).send({ error: "Failed to start room cleaning" });
 		}
 	});
 
 	// Get cleaning history
-	fastify.get("/devices/:deviceId/history", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.get<{ Params: DeviceIdParams }>("/devices/:deviceId/history", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (!roborockService.isConnected(user.id)) {
 			return reply.status(401).send({ error: "Not connected to Roborock" });
@@ -271,9 +282,9 @@ export async function roborockRoutes(fastify: FastifyInstance) {
 	});
 
 	// Get map (if available)
-	fastify.get("/devices/:deviceId/map", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { deviceId } = request.params as { deviceId: string };
+	fastify.get<{ Params: DeviceIdParams }>("/devices/:deviceId/map", async (request, reply) => {
+		const user = getUser(request);
+		const { deviceId } = request.params;
 
 		if (!roborockService.isConnected(user.id)) {
 			return reply.status(401).send({ error: "Not connected to Roborock" });

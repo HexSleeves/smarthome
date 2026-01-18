@@ -35,13 +35,9 @@ function loadConfig(): Config {
 
 	if (!result.success) {
 		console.error("\n❌ Invalid environment variables:\n");
-		const formatted = z.treeifyError(result.error);
-		for (const [key, value] of Object.entries(formatted)) {
-			if (key === "_errors") continue;
-			const errors = (value as { _errors?: string[] })._errors;
-			if (errors?.length) {
-				console.error(`  ${key}: ${errors.join(", ")}`);
-			}
+		for (const issue of result.error.issues) {
+			const path = issue.path.join(".") || "(root)";
+			console.error(`  ${path}: ${issue.message}`);
 		}
 		console.error(
 			"\nRequired in production: JWT_SECRET, COOKIE_SECRET, ENCRYPTION_SECRET (32+ chars each)\n",

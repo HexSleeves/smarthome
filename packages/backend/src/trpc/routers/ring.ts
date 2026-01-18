@@ -1,14 +1,14 @@
-import { z } from "zod";
-import { router, protectedProcedure, adminProcedure } from "../trpc.js";
-import { ringService } from "../../services/ring.js";
-import { hasCredentials } from "../../db/queries.js";
 import type {
-	RingStatusResponse,
-	RingAuthResponse,
 	Ring2FAResponse,
+	RingAuthResponse,
 	RingDevicesResponse,
 	RingHistoryResponse,
+	RingStatusResponse,
 } from "@smarthome/shared";
+import { z } from "zod";
+import { hasCredentials } from "../../db/queries.js";
+import { ringService } from "../../services/ring.js";
+import { adminProcedure, protectedProcedure, router } from "../trpc.js";
 
 export const ringRouter = router({
 	status: protectedProcedure.query(
@@ -29,7 +29,7 @@ export const ringRouter = router({
 	),
 
 	auth: adminProcedure
-		.input(z.object({ email: z.string().email(), password: z.string() }))
+		.input(z.object({ email: z.email(), password: z.string() }))
 		.mutation(async ({ ctx, input }): Promise<RingAuthResponse> => {
 			const result = await ringService.authenticate(
 				ctx.user.id,

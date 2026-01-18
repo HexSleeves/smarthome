@@ -1,8 +1,31 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { deviceQueries, type Event, eventQueries } from "../db/queries.js";
 import type { AuthUser } from "../middleware/auth.js";
 import { ringService } from "../services/ring.js";
 import { roborockService } from "../services/roborock.js";
+
+// Route type definitions
+interface IdParams {
+	id: string;
+}
+
+interface EventsQuery {
+	limit?: number;
+	type?: string;
+}
+
+interface LimitQuery {
+	limit?: number;
+}
+
+interface UpdateBody {
+	name?: string;
+}
+
+// Helper to get typed user from request
+function getUser(request: FastifyRequest): AuthUser {
+	return request.user as AuthUser;
+}
 
 export async function deviceRoutes(fastify: FastifyInstance) {
 	// Require auth for all routes
@@ -10,7 +33,7 @@ export async function deviceRoutes(fastify: FastifyInstance) {
 
 	// Get all devices
 	fastify.get("/", async (request) => {
-		const user = request.user as AuthUser;
+		const user = getUser(request);
 		const devices = deviceQueries.findByUserId.all(user.id);
 
 		// Enrich with live status
@@ -28,7 +51,7 @@ export async function deviceRoutes(fastify: FastifyInstance) {
 
 				return {
 					...device,
-					config: JSON.parse(device.config || "{}"),
+					config: JSON.parse(device.config || "{}") as Record<string, unknown>,
 					liveState,
 				};
 			}),
@@ -38,9 +61,9 @@ export async function deviceRoutes(fastify: FastifyInstance) {
 	});
 
 	// Get device by ID
-	fastify.get("/:id", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { id } = request.params as { id: string };
+	fastify.get<{ Params: IdParams }>("/:id", async (request, reply) => {
+		const user = getUser(request);
+		const { id } = request.params;
 
 		const device = deviceQueries.findById.get(id);
 		if (!device || device.user_id !== user.id) {
@@ -58,66 +81,69 @@ export async function deviceRoutes(fastify: FastifyInstance) {
 
 		return {
 			...device,
-			config: JSON.parse(device.config || "{}"),
+			config: JSON.parse(device.config || "{}") as Record<string, unknown>,
 			liveState,
 		};
 	});
 
 	// Get device events
-	fastify.get("/:id/events", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { id } = request.params as { id: string };
-		const { limit = 50, type } = request.query as {
-			limit?: number;
-			type?: string;
-		};
+	fastify.get<{ Params: IdParams; Querystring: EventsQuery }>(
+		"/:id/events",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { id } = request.params;
+			const { limit = 50, type } = request.query;
 
-		const device = deviceQueries.findById.get(id);
-		if (!device || device.user_id !== user.id) {
-			return reply.status(404).send({ error: "Device not found" });
-		}
+			const device = deviceQueries.findById.get(id);
+			if (!device || device.user_id !== user.id) {
+				return reply.status(404).send({ error: "Device not found" });
+			}
 
-		let events: Event[];
-		if (type) {
-			events = eventQueries.findByType.all(id, type, Math.min(limit, 100));
-		} else {
-			events = eventQueries.findByDevice.all(id, Math.min(limit, 100));
-		}
+			let events: Event[];
+			if (type) {
+				events = eventQueries.findByType.all(id, type, Math.min(limit, 100));
+			} else {
+				events = eventQueries.findByDevice.all(id, Math.min(limit, 100));
+			}
 
-		return {
-			events: events.map((e) => ({
-				...e,
-				data: JSON.parse(e.data || "{}"),
-			})),
-		};
-	});
+			return {
+				events: events.map((e) => ({
+					...e,
+					data: JSON.parse(e.data || "{}") as Record<string, unknown>,
+				})),
+			};
+		},
+	);
 
 	// Update device name
-	fastify.patch("/:id", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { id } = request.params as { id: string };
-		const { name } = request.body as { name?: string };
+	fastify.patch<{ Params: IdParams; Body: UpdateBody }>(
+		"/:id",
+		async (request, reply) => {
+			const user = getUser(request);
+			const { id } = request.params;
+			const { name } = request.body;
 
-		const device = deviceQueries.findById.get(id);
-		if (!device || device.user_id !== user.id) {
-			return reply.status(404).send({ error: "Device not found" });
-		}
+			const device = deviceQueries.findById.get(id);
+			if (!device || device.user_id !== user.id) {
+				return reply.status(404).send({ error: "Device not found" });
+			}
 
-		if (user.role !== "admin") {
-			return reply.status(403).send({ error: "Admin access required" });
-		}
+			if (user.role !== "admin") {
+				return reply.status(403).send({ error: "Admin access required" });
+			}
 
-		if (name) {
-			// Would need to add update name query
-		}
+			if (name) {
+				// Would need to add update name query
+			}
 
-		return { success: true };
-	});
+			return { success: true };
+		},
+	);
 
 	// Delete device
-	fastify.delete("/:id", async (request, reply) => {
-		const user = request.user as AuthUser;
-		const { id } = request.params as { id: string };
+	fastify.delete<{ Params: IdParams }>("/:id", async (request, reply) => {
+		const user = getUser(request);
+		const { id } = request.params;
 
 		if (user.role !== "admin") {
 			return reply.status(403).send({ error: "Admin access required" });
@@ -133,16 +159,16 @@ export async function deviceRoutes(fastify: FastifyInstance) {
 	});
 
 	// Get recent events across all devices
-	fastify.get("/events/recent", async (request) => {
-		const user = request.user as AuthUser;
-		const { limit = 20 } = request.query as { limit?: number };
+	fastify.get<{ Querystring: LimitQuery }>("/events/recent", async (request) => {
+		const user = getUser(request);
+		const { limit = 20 } = request.query;
 
 		const events = eventQueries.findRecent.all(user.id, Math.min(limit, 100));
 
 		return {
 			events: events.map((e) => ({
 				...e,
-				data: JSON.parse(e.data || "{}"),
+				data: JSON.parse(e.data || "{}") as Record<string, unknown>,
 			})),
 		};
 	});

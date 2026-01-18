@@ -2,6 +2,7 @@ import type { WebSocket } from "@fastify/websocket";
 import type { FastifyInstance } from "fastify";
 import { ringService } from "../services/ring.js";
 import { roborockService } from "../services/roborock.js";
+import type { JwtPayload, WsIncomingMessage } from "../types.js";
 
 interface WsClient {
 	ws: WebSocket;
@@ -35,11 +36,7 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 		}
 
 		try {
-			const decoded = fastify.jwt.verify(token) as {
-				id: string;
-				email: string;
-				role: string;
-			};
+			const decoded = fastify.jwt.verify<JwtPayload>(token);
 
 			const client: WsClient = {
 				ws,
@@ -98,7 +95,7 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 	});
 }
 
-async function handleMessage(client: WsClient, message: any) {
+async function handleMessage(client: WsClient, message: WsIncomingMessage) {
 	switch (message.type) {
 		case "ping":
 			client.ws.send(JSON.stringify({ type: "pong" }));

@@ -1,15 +1,15 @@
-import { EventEmitter } from "node:events";
-import { decrypt, encrypt } from "../lib/crypto.js";
-import {
-	saveCredentials,
-	getCredentials,
-	createDevice,
-	deviceQueries,
-	createEvent,
-} from "../db/queries.js";
 import crypto from "node:crypto";
-
+import type { RoborockCommandParam } from "../types.js";
+import { EventEmitter } from "node:events";
 import { config } from "../config.js";
+import {
+	createDevice,
+	createEvent,
+	deviceQueries,
+	getCredentials,
+	saveCredentials,
+} from "../db/queries.js";
+import { decrypt, encrypt } from "../lib/crypto.js";
 
 const ENCRYPTION_SECRET = config.ENCRYPTION_SECRET;
 
@@ -172,11 +172,13 @@ class RoborockService extends EventEmitter {
 			this.startPolling(userId);
 
 			return { success: true };
-		} catch (error: any) {
+		} catch (error: unknown) {
 			console.error("Roborock auth error:", error);
+			const message =
+				error instanceof Error ? error.message : "Authentication failed";
 			return {
 				success: false,
-				error: error.message || "Authentication failed",
+				error: message,
 			};
 		}
 	}
@@ -372,7 +374,7 @@ class RoborockService extends EventEmitter {
 		userId: string,
 		deviceId: string,
 		command: string,
-		params: any[] = [],
+		params: RoborockCommandParam[] = [],
 	): Promise<boolean> {
 		const creds = this.credentials.get(userId);
 		if (!creds) return false;

@@ -528,12 +528,14 @@ class RoborockService extends EventEmitter {
 export const roborockService = new RoborockService();
 
 // Helper for tRPC to get live state
-export function getRoborockLiveState(deviceId: string): RoborockDeviceState | undefined {
-  // Check all user states for this device
-  for (const [key, state] of roborockService['deviceStates'].entries()) {
-    if (state.id === deviceId) {
-      return state;
-    }
-  }
-  return undefined;
+export function getRoborockLiveState(
+	deviceId: string,
+): RoborockDeviceState | undefined {
+	// Check all user states for this device
+	for (const [key, state] of roborockService["deviceStates"].entries()) {
+		if (state.id === deviceId) {
+			return state;
+		}
+	}
+	return undefined;
 }

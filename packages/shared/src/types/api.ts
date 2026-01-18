@@ -1,48 +1,55 @@
-import type { Device, DeviceEvent, RingDeviceState, RingEvent, RoborockDeviceState, RoborockCleanHistory } from "./device"
+import type {
+	Device,
+	DeviceEvent,
+	RingDeviceState,
+	RingEvent,
+	RoborockDeviceState,
+	RoborockCleanHistory,
+} from "./device";
 
 // API response types
 export type DeviceListResponse = {
-  devices: Device[]
-}
+	devices: Device[];
+};
 
 export type DeviceEventsResponse = {
-  events: DeviceEvent[]
-}
+	events: DeviceEvent[];
+};
 
 export type RoborockStatusResponse = {
-  connected: boolean
-  hasCredentials: boolean
-}
+	connected: boolean;
+	hasCredentials: boolean;
+};
 
 export type RoborockDevicesResponse = {
-  devices: RoborockDeviceState[]
-}
+	devices: RoborockDeviceState[];
+};
 
 export type RoborockHistoryResponse = {
-  history: RoborockCleanHistory[]
-}
+	history: RoborockCleanHistory[];
+};
 
 export type RingStatusResponse = {
-  connected: boolean
-  hasCredentials: boolean
-  pending2FA: boolean
-}
+	connected: boolean;
+	hasCredentials: boolean;
+	pending2FA: boolean;
+};
 
 export type RingAuthResponse = {
-  success: boolean
-  requiresTwoFactor?: boolean
-  prompt?: string
-}
+	success: boolean;
+	requiresTwoFactor?: boolean;
+	prompt?: string;
+};
 
 export type Ring2FAResponse = {
-  success: boolean
-  canRetry?: boolean
-}
+	success: boolean;
+	canRetry?: boolean;
+};
 
 export type RingDevicesResponse = {
-  devices: RingDeviceState[]
-}
+	devices: RingDeviceState[];
+};
 
 export type RingHistoryResponse = {
-  history: RingEvent[]
-}
+	history: RingEvent[];
+};

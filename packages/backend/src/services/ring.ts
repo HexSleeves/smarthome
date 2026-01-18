@@ -482,11 +482,13 @@ class RingService extends EventEmitter {
 export const ringService = new RingService();
 
 // Helper for tRPC to get live state
-export function getRingLiveState(deviceId: string): RingDeviceState | undefined {
-  for (const [key, state] of ringService['deviceStates'].entries()) {
-    if (state.id === deviceId) {
-      return state;
-    }
-  }
-  return undefined;
+export function getRingLiveState(
+	deviceId: string,
+): RingDeviceState | undefined {
+	for (const [key, state] of ringService["deviceStates"].entries()) {
+		if (state.id === deviceId) {
+			return state;
+		}
+	}
+	return undefined;
 }

@@ -17,8 +17,6 @@ import { db } from "./db/schema.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { ringSnapshotRoutes } from "./routes/ring-snapshot.js";
 import { websocketRoutes } from "./routes/websocket.js";
-// All auth, device, ring, roborock routes now use tRPC
-// Only ring-snapshot.ts remains as REST (for img src URLs)
 import { ringService } from "./services/ring.js";
 import { roborockService } from "./services/roborock.js";
 import { reconnectStoredCredentials } from "./startup.js";
@@ -26,13 +24,8 @@ import { registerTRPC } from "./trpc/fastify-adapter.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const fastify = Fastify({
-	logger: {
-		level: config.LOG_LEVEL,
-	},
-});
+const fastify = Fastify({ logger: { level: config.LOG_LEVEL } });
 
-// Extend Fastify with auth decorator
 declare module "fastify" {
 	interface FastifyInstance {
 		authenticate: typeof authMiddleware;
@@ -40,17 +33,12 @@ declare module "fastify" {
 }
 
 async function main() {
-	// Security headers
-	await fastify.register(helmet, {
-		contentSecurityPolicy: false, // Disable for SPA
-	});
+	await fastify.register(helmet, { contentSecurityPolicy: false });
 
-	// Rate limiting - global with per-route overrides
 	await fastify.register(rateLimit, {
 		global: true,
 		max: 100,
 		timeWindow: "1 minute",
-		// Allow per-route config overrides
 		addHeadersOnExceeding: {
 			"x-ratelimit-limit": true,
 			"x-ratelimit-remaining": true,
@@ -58,107 +46,61 @@ async function main() {
 		},
 	});
 
-	// CORS - explicit origins in production
 	const corsOrigin = config.CORS_ORIGIN
 		? config.CORS_ORIGIN.split(",").map((o) => o.trim())
 		: config.NODE_ENV === "production"
-			? false // Block all in production if not configured
-			: true; // Allow all in development
+			? false
+			: true;
 
-	await fastify.register(cors, {
-		origin: corsOrigin,
-		credentials: true,
-	});
-
+	await fastify.register(cors, { origin: corsOrigin, credentials: true });
 	await fastify.register(formbody);
-
-	await fastify.register(cookie, {
-		secret: config.COOKIE_SECRET,
-	});
-
-	await fastify.register(jwt, {
-		secret: config.JWT_SECRET,
-	});
-
+	await fastify.register(cookie, { secret: config.COOKIE_SECRET });
+	await fastify.register(jwt, { secret: config.JWT_SECRET });
 	await fastify.register(websocket);
 
-	// Add auth decorator
 	fastify.decorate("authenticate", authMiddleware);
 
-	// Ring snapshot route (needs REST for img src= usage)
+	// Routes
 	await fastify.register(ringSnapshotRoutes, { prefix: "/api/ring" });
-
-	// WebSocket routes
 	await fastify.register(websocketRoutes, { prefix: "/api/ws" });
-
-	// Deprecated REST routes - use tRPC instead:
-	// - /api/devices/* → trpc.device.*
-	// - /api/roborock/* → trpc.roborock.*
-	// - /api/ring/* (except snapshot) → trpc.ring.*
-
-	// tRPC routes
 	await registerTRPC(fastify);
 
-	// Health check
-	fastify.get("/api/health", async () => {
-		return { status: "ok", timestamp: new Date().toISOString() };
-	});
+	fastify.get("/api/health", async () => ({
+		status: "ok",
+		timestamp: new Date().toISOString(),
+	}));
 
-	// Serve frontend in production
+	// Serve frontend
 	const frontendDist = join(__dirname, "../../frontend/dist");
 	if (existsSync(frontendDist)) {
-		await fastify.register(fastifyStatic, {
-			root: frontendDist,
-			prefix: "/",
-		});
-
-		// SPA fallback
+		await fastify.register(fastifyStatic, { root: frontendDist, prefix: "/" });
 		fastify.setNotFoundHandler(async (request, reply) => {
 			if (request.url.startsWith("/api")) {
 				return reply.status(404).send({ error: "Not found" });
 			}
 			return reply.sendFile("index.html");
 		});
-	} else {
-		fastify.get("/", async () => {
-			return { message: "Smart Home API", docs: "/api/health" };
-		});
 	}
 
-	// Start server
 	try {
 		await fastify.listen({ port: config.PORT, host: config.HOST });
 		fastify.log.info(`Server running at http://${config.HOST}:${config.PORT}`);
-
-		// Auto-reconnect services for users with stored credentials
-		// Run in background to not block startup
-		reconnectStoredCredentials(fastify).catch((err) => {
-			fastify.log.error(err, "Failed to reconnect stored credentials");
-		});
+		reconnectStoredCredentials(fastify).catch((err) =>
+			fastify.log.error(err, "Failed to reconnect stored credentials"),
+		);
 	} catch (err) {
 		fastify.log.error(err);
 		process.exit(1);
 	}
 }
 
-// Graceful shutdown
 const shutdown = async (signal: string) => {
-	fastify.log.info(`Received ${signal}, shutting down gracefully...`);
-
+	fastify.log.info(`Received ${signal}, shutting down...`);
 	try {
-		// Stop accepting new connections
 		await fastify.close();
-		fastify.log.info("HTTP server closed");
-
-		// Cleanup services
 		roborockService.shutdown();
 		ringService.shutdown();
-		fastify.log.info("Services shut down");
-
-		// Close database
 		db.close();
-		fastify.log.info("Database connection closed");
-
 		fastify.log.info("Shutdown complete");
 		process.exit(0);
 	} catch (err) {

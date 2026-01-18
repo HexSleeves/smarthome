@@ -1,22 +1,6 @@
 import type { ZodError } from "zod";
 
-/**
- * Standard error type for catch blocks
- * Use `unknown` and type-guard instead of `any`
- */
-export function getErrorMessage(error: unknown): string {
-	if (error instanceof Error) {
-		return error.message;
-	}
-	if (typeof error === "string") {
-		return error;
-	}
-	return "Unknown error";
-}
-
-/**
- * Type guard for ZodError
- */
+// Type guard for ZodError
 export function isZodError(error: unknown): error is ZodError {
 	return (
 		error !== null &&
@@ -26,19 +10,7 @@ export function isZodError(error: unknown): error is ZodError {
 	);
 }
 
-/**
- * Database row types (from better-sqlite3)
- */
-export interface DbUserRow {
-	id: string;
-	email: string;
-	password_hash: string;
-	name: string | null;
-	role: "admin" | "viewer";
-	created_at: string;
-	updated_at: string;
-}
-
+// Database row types
 export interface DbDeviceRow {
 	id: string;
 	user_id: string;
@@ -60,46 +32,13 @@ export interface DbEventRow {
 	created_at: string;
 }
 
-export interface DbSessionRow {
-	id: string;
-	user_id: string;
-	refresh_token: string;
-	user_agent: string | null;
-	ip_address: string | null;
-	expires_at: string;
-	created_at: string;
-}
+// WebSocket message types
+export type WsIncomingMessage =
+	| { type: "ping" }
+	| { type: "subscribe:ring" }
+	| { type: "unsubscribe:ring" };
 
-export interface DbCredentialRow {
-	id: string;
-	user_id: string;
-	provider: "roborock" | "ring";
-	credentials_encrypted: string;
-	created_at: string;
-	updated_at: string;
-}
-
-/**
- * WebSocket message types
- */
-export interface WsMessage {
-	type: string;
-	[key: string]: unknown;
-}
-
-export interface WsPingMessage {
-	type: "ping";
-}
-
-export interface WsSubscribeMessage {
-	type: "subscribe:ring" | "unsubscribe:ring";
-}
-
-export type WsIncomingMessage = WsPingMessage | WsSubscribeMessage | WsMessage;
-
-/**
- * Ring event callback type
- */
+// Ring event callback type
 export interface RingEventPayload {
 	type: "motion" | "ding";
 	deviceId: number;
@@ -107,19 +46,14 @@ export interface RingEventPayload {
 	timestamp: string;
 }
 
-/**
- * JWT payload type
- */
+// JWT payload type
 export interface JwtPayload {
 	id: string;
 	email: string;
-	name?: string | null;
 	role: "admin" | "viewer";
 	iat?: number;
 	exp?: number;
 }
 
-/**
- * Roborock command params - can be numbers, strings, or objects
- */
+// Roborock API types
 export type RoborockCommandParam = number | string | Record<string, unknown>;

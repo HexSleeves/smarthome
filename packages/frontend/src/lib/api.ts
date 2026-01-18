@@ -1,9 +1,4 @@
-/**
- * Token management for authentication.
- * Auth is handled via tRPC (see stores/auth.ts and lib/trpc/vanilla.ts)
- */
-
-const API_BASE = "/api";
+// Token management - auth handled via tRPC (stores/auth.ts)
 
 let accessToken: string | null = localStorage.getItem("accessToken");
 let refreshToken: string | null = localStorage.getItem("refreshToken");
@@ -30,12 +25,7 @@ export function getRefreshToken() {
 	return refreshToken;
 }
 
-/**
- * Ring snapshot URL helper.
- * This needs to be a REST URL with token in query string for use in <img src>.
- * All other Ring endpoints use tRPC.
- */
-export const ringApi = {
-	snapshotUrl: (deviceId: string) =>
-		`${API_BASE}/ring/devices/${deviceId}/snapshot?token=${accessToken}`,
-};
+// Ring snapshot needs REST URL for <img src>
+export function getRingSnapshotUrl(deviceId: string) {
+	return `/api/ring/devices/${deviceId}/snapshot?token=${accessToken}`;
+}

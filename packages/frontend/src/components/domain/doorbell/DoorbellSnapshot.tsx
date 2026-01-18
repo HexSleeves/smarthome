@@ -1,6 +1,6 @@
 import { RefreshCw, Video } from "lucide-react";
 import { useState } from "react";
-import { ringApi } from "@/lib/api";
+import { getRingSnapshotUrl } from "@/lib/api";
 
 type DoorbellSnapshotProps = {
 	deviceId: string;
@@ -8,7 +8,7 @@ type DoorbellSnapshotProps = {
 
 export function DoorbellSnapshot({ deviceId }: DoorbellSnapshotProps) {
 	const [snapshotKey, setSnapshotKey] = useState(0);
-	const snapshotUrl = `${ringApi.snapshotUrl(deviceId)}&t=${snapshotKey}`;
+	const snapshotUrl = `${getRingSnapshotUrl(deviceId)}&t=${snapshotKey}`;
 
 	return (
 		<div className="p-6 bg-gray-900">

@@ -11,8 +11,6 @@ import {
 import { decrypt, encrypt } from "../lib/crypto.js";
 import type { RingEventPayload } from "../types.js";
 
-const ENCRYPTION_SECRET = config.ENCRYPTION_SECRET;
-
 interface RingCredentials {
 	refreshToken: string;
 }
@@ -29,18 +27,19 @@ interface RingDeviceState {
 	lastDing: string | null;
 }
 
-// Store pending 2FA sessions (email/password waiting for code)
 interface Pending2FASession {
 	email: string;
 	password: string;
 	timestamp: number;
 }
 
+const TWO_FA_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+
 class RingService extends EventEmitter {
-	private readonly apiInstances: Map<string, RingApi> = new Map();
-	private readonly cameras: Map<string, RingCamera> = new Map();
-	private readonly deviceStates: Map<string, RingDeviceState> = new Map();
-	private readonly pending2FA: Map<string, Pending2FASession> = new Map();
+	private readonly apiInstances = new Map<string, RingApi>();
+	private readonly cameras = new Map<string, RingCamera>();
+	private readonly deviceStates = new Map<string, RingDeviceState>();
+	private readonly pending2FA = new Map<string, Pending2FASession>();
 
 	async authenticate(
 		userId: string,
@@ -53,113 +52,76 @@ class RingService extends EventEmitter {
 		prompt?: string;
 		error?: string;
 	}> {
-		// Define these outside try so they're accessible in catch
 		let authEmail = email;
 		let authPassword = password;
 
 		try {
-			// If we have a 2FA code but no email/password, try to get from pending session
-
 			if (twoFactorCode && (!email || !password)) {
 				const pending = this.pending2FA.get(userId);
-				if (pending && Date.now() - pending.timestamp < 10 * 60 * 1000) {
-					// 10 min expiry
+				if (pending && Date.now() - pending.timestamp < TWO_FA_EXPIRY_MS) {
 					authEmail = pending.email;
 					authPassword = pending.password;
 				} else {
 					this.pending2FA.delete(userId);
 					return {
 						success: false,
-						error: "Session expired. Please enter email and password again.",
+						error: "Session expired. Please try again.",
 					};
 				}
 			}
 
-			console.log(
-				`Ring auth attempt for ${authEmail}, 2FA code: ${twoFactorCode ? "provided" : "not provided"}`,
-			);
-
-			// RingApi types only expose RefreshTokenAuth, but the underlying
-			// RingRestClient supports email/password auth. Use type assertion
-			// to bypass the type restriction.
 			const api = new RingApi({
 				email: authEmail,
 				password: authPassword,
 			} as unknown as ConstructorParameters<typeof RingApi>[0]);
 
-			// If we have a 2FA code, authenticate with it
 			if (twoFactorCode) {
-				console.log("Calling restClient.getAuth with 2FA code...");
 				await api.restClient.getAuth(twoFactorCode);
 			}
 
-			// This will trigger auth (or use the already-authenticated session)
 			const locations = await api.getLocations();
-
-			// Success - clear any pending 2FA session
 			this.pending2FA.delete(userId);
 
 			if (locations.length === 0) {
 				return { success: false, error: "No Ring locations found" };
 			}
 
-			// Get the refresh token from the API
 			const refreshToken = api.restClient.refreshToken;
-
 			if (refreshToken) {
-				// Save encrypted credentials
 				const encrypted = encrypt(
 					JSON.stringify({ refreshToken }),
-					ENCRYPTION_SECRET,
+					config.ENCRYPTION_SECRET,
 				);
 				saveCredentials(userId, "ring", encrypted);
-
-				// Store API instance
 				this.apiInstances.set(userId, api);
-
-				// Discover devices
 				await this.discoverDevices(userId, api);
-
-				// Set up event listeners
 				this.setupEventListeners(userId, api);
 			}
 
 			return { success: true };
 		} catch (error: unknown) {
 			const errorMsg = error instanceof Error ? error.message : "Unknown error";
-			console.log("Ring auth error message:", errorMsg);
 
-			// Check if it's an invalid 2FA code (status 400 with "Verification Code" error)
 			if (
 				errorMsg.startsWith("Verification Code") ||
 				errorMsg.includes("Invalid 2fa code")
 			) {
-				// Don't overwrite pending session - just return error for retry
-				console.log("Ring 2FA code invalid, allowing retry");
 				return {
 					success: false,
 					requiresTwoFactor: true,
-					prompt: "Invalid code. Please check and try again.",
+					prompt: "Invalid code. Please try again.",
 					error: "Invalid verification code",
 				};
 			}
 
-			// Check if 2FA is required (initial request, status 412)
 			if (errorMsg.includes("2-factor") || errorMsg.includes("2fa")) {
-				// Only store credentials if this is the initial 2FA trigger (no code was provided)
 				if (!twoFactorCode) {
 					this.pending2FA.set(userId, {
 						email: authEmail,
 						password: authPassword,
 						timestamp: Date.now(),
 					});
-					console.log("Ring 2FA required, storing pending session");
-				} else {
-					console.log(
-						"Ring 2FA still required after code submission - code may be wrong",
-					);
 				}
-
 				return {
 					success: false,
 					requiresTwoFactor: true,
@@ -167,12 +129,10 @@ class RingService extends EventEmitter {
 				};
 			}
 
-			console.error("Ring auth error:", error);
 			return { success: false, error: errorMsg || "Authentication failed" };
 		}
 	}
 
-	// New method: submit just the 2FA code using stored credentials
 	async submitTwoFactorCode(
 		userId: string,
 		twoFactorCode: string,
@@ -183,47 +143,34 @@ class RingService extends EventEmitter {
 		error?: string;
 	}> {
 		const pending = this.pending2FA.get(userId);
-
 		if (!pending) {
 			return {
 				success: false,
 				error: "No pending authentication. Please start over.",
 			};
 		}
-
-		if (Date.now() - pending.timestamp > 10 * 60 * 1000) {
+		if (Date.now() - pending.timestamp > TWO_FA_EXPIRY_MS) {
 			this.pending2FA.delete(userId);
-			return {
-				success: false,
-				error: "Session expired. Please enter email and password again.",
-			};
+			return { success: false, error: "Session expired. Please try again." };
 		}
-
-		// Re-authenticate with the stored credentials + 2FA code
-		const result = await this.authenticate(
+		return this.authenticate(
 			userId,
 			pending.email,
 			pending.password,
 			twoFactorCode,
 		);
-		return result;
 	}
 
-	// Check if there's a pending 2FA session for this user
 	hasPending2FA(userId: string): boolean {
 		const pending = this.pending2FA.get(userId);
 		if (!pending) return false;
-
-		// Check if not expired (10 min)
-		if (Date.now() - pending.timestamp > 10 * 60 * 1000) {
+		if (Date.now() - pending.timestamp > TWO_FA_EXPIRY_MS) {
 			this.pending2FA.delete(userId);
 			return false;
 		}
-
 		return true;
 	}
 
-	// Cancel pending 2FA session
 	cancelPending2FA(userId: string): void {
 		this.pending2FA.delete(userId);
 	}
@@ -234,31 +181,27 @@ class RingService extends EventEmitter {
 			if (!stored) return false;
 
 			const { refreshToken } = JSON.parse(
-				decrypt(stored.credentials_encrypted, ENCRYPTION_SECRET),
+				decrypt(stored.credentials_encrypted, config.ENCRYPTION_SECRET),
 			) as RingCredentials;
 
 			const api = new RingApi({ refreshToken });
-
-			// Verify connection works
 			await api.getLocations();
 
 			this.apiInstances.set(userId, api);
 			await this.discoverDevices(userId, api);
 			this.setupEventListeners(userId, api);
 
-			// Update stored token if it changed
 			const newToken = api.restClient.refreshToken;
 			if (newToken && newToken !== refreshToken) {
 				const encrypted = encrypt(
 					JSON.stringify({ refreshToken: newToken }),
-					ENCRYPTION_SECRET,
+					config.ENCRYPTION_SECRET,
 				);
 				saveCredentials(userId, "ring", encrypted);
 			}
 
 			return true;
-		} catch (error) {
-			console.error("Ring reconnect error:", error);
+		} catch {
 			return false;
 		}
 	}
@@ -267,13 +210,10 @@ class RingService extends EventEmitter {
 		const locations = await api.getLocations();
 
 		for (const location of locations) {
-			const cameras = location.cameras;
+			for (const camera of location.cameras) {
+				const key = `${userId}:${camera.id}`;
+				this.cameras.set(key, camera);
 
-			for (const camera of cameras) {
-				const cameraKey = `${userId}:${camera.id}`;
-				this.cameras.set(cameraKey, camera);
-
-				// Check if device exists in DB
 				const existing = deviceQueries.findByType
 					.all(userId, "ring")
 					.find((d) => d.device_id === String(camera.id));
@@ -285,8 +225,7 @@ class RingService extends EventEmitter {
 					});
 				}
 
-				// Track state
-				const state: RingDeviceState = {
+				this.deviceStates.set(key, {
 					id: String(camera.id),
 					name: camera.name,
 					type: camera.isDoorbot ? "doorbell" : "camera",
@@ -296,8 +235,7 @@ class RingService extends EventEmitter {
 					hasSiren: camera.hasSiren,
 					lastMotion: null,
 					lastDing: null,
-				};
-				this.deviceStates.set(cameraKey, state);
+				});
 			}
 		}
 	}
@@ -306,32 +244,25 @@ class RingService extends EventEmitter {
 		api.onRefreshTokenUpdated.subscribe(({ newRefreshToken }) => {
 			const encrypted = encrypt(
 				JSON.stringify({ refreshToken: newRefreshToken }),
-				ENCRYPTION_SECRET,
+				config.ENCRYPTION_SECRET,
 			);
 			saveCredentials(userId, "ring", encrypted);
 		});
 	}
 
 	async getDevices(userId: string): Promise<RingDeviceState[]> {
-		const states: RingDeviceState[] = [];
-
-		for (const [key, state] of this.deviceStates) {
-			if (key.startsWith(`${userId}:`)) {
-				states.push(state);
-			}
-		}
-
-		return states;
+		const prefix = `${userId}:`;
+		return Array.from(this.deviceStates.entries())
+			.filter(([key]) => key.startsWith(prefix))
+			.map(([, state]) => state);
 	}
 
 	async getSnapshot(userId: string, deviceId: string): Promise<Buffer | null> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
 		if (!camera) return null;
-
 		try {
 			return await camera.getSnapshot();
-		} catch (error) {
-			console.error("Failed to get snapshot:", error);
+		} catch {
 			return null;
 		}
 	}
@@ -342,16 +273,7 @@ class RingService extends EventEmitter {
 	): Promise<string | null> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
 		if (!camera) return null;
-
-		try {
-			// Ring uses WebRTC/SIP for live streaming
-			// For browser compatibility, we'd need to set up a media server
-			// For now, return snapshot URL as fallback
-			return `/api/ring/devices/${deviceId}/snapshot`;
-		} catch (error) {
-			console.error("Failed to get live stream:", error);
-			return null;
-		}
+		return `/api/ring/devices/${deviceId}/snapshot`;
 	}
 
 	async getHistory(
@@ -361,12 +283,10 @@ class RingService extends EventEmitter {
 	): Promise<CameraEvent[]> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
 		if (!camera) return [];
-
 		try {
 			const events = await camera.getEvents({ limit });
 			return events.events || [];
-		} catch (error) {
-			console.error("Failed to get history:", error);
+		} catch {
 			return [];
 		}
 	}
@@ -378,12 +298,10 @@ class RingService extends EventEmitter {
 	): Promise<boolean> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
 		if (!camera?.hasLight) return false;
-
 		try {
 			await camera.setLight(on);
 			return true;
-		} catch (error) {
-			console.error("Failed to toggle light:", error);
+		} catch {
 			return false;
 		}
 	}
@@ -391,13 +309,11 @@ class RingService extends EventEmitter {
 	async triggerSiren(userId: string, deviceId: string): Promise<boolean> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
 		if (!camera?.hasSiren) return false;
-
 		try {
 			await camera.setSiren(true);
-			setTimeout(() => camera.setSiren(false), 5000); // Auto-off after 5s
+			setTimeout(() => camera.setSiren(false), 5000);
 			return true;
-		} catch (error) {
-			console.error("Failed to trigger siren:", error);
+		} catch {
 			return false;
 		}
 	}
@@ -407,65 +323,55 @@ class RingService extends EventEmitter {
 		callback: (event: RingEventPayload) => void,
 	): () => void {
 		const unsubscribers: (() => void)[] = [];
+		const prefix = `${userId}:`;
 
 		for (const [key, camera] of this.cameras) {
-			if (key.startsWith(`${userId}:`)) {
-				// Motion events
-				const motionSub = camera.onMotionDetected.subscribe((motion) => {
-					if (motion) {
+			if (!key.startsWith(prefix)) continue;
+
+			const motionSub = camera.onMotionDetected.subscribe((motion) => {
+				if (motion) {
+					const event: RingEventPayload = {
+						type: "motion",
+						deviceId: camera.id,
+						deviceName: camera.name,
+						timestamp: new Date().toISOString(),
+					};
+					const state = this.deviceStates.get(key);
+					if (state) state.lastMotion = event.timestamp;
+
+					const device = deviceQueries.findByType
+						.all(userId, "ring")
+						.find((d) => d.device_id === String(camera.id));
+					if (device) createEvent(device.id, "motion", event);
+					callback(event);
+				}
+			});
+			unsubscribers.push(() => motionSub.unsubscribe());
+
+			if (camera.isDoorbot) {
+				const dingSub = camera.onDoorbellPressed.subscribe((ding) => {
+					if (ding) {
 						const event: RingEventPayload = {
-							type: "motion",
+							type: "ding",
 							deviceId: camera.id,
 							deviceName: camera.name,
 							timestamp: new Date().toISOString(),
 						};
-
-						// Update state
 						const state = this.deviceStates.get(key);
-						if (state) state.lastMotion = event.timestamp;
+						if (state) state.lastDing = event.timestamp;
 
-						// Store event
 						const device = deviceQueries.findByType
 							.all(userId, "ring")
 							.find((d) => d.device_id === String(camera.id));
-						if (device) createEvent(device.id, "motion", event);
-
+						if (device) createEvent(device.id, "ding", event);
 						callback(event);
 					}
 				});
-				unsubscribers.push(() => motionSub.unsubscribe());
-
-				// Doorbell events
-				if (camera.isDoorbot) {
-					const dingSub = camera.onDoorbellPressed.subscribe((ding) => {
-						if (ding) {
-							const event: RingEventPayload = {
-								type: "ding",
-								deviceId: camera.id,
-								deviceName: camera.name,
-								timestamp: new Date().toISOString(),
-							};
-
-							const state = this.deviceStates.get(key);
-							if (state) state.lastDing = event.timestamp;
-
-							const device = deviceQueries.findByType
-								.all(userId, "ring")
-								.find((d) => d.device_id === String(camera.id));
-							if (device) createEvent(device.id, "ding", event);
-
-							callback(event);
-						}
-					});
-					unsubscribers.push(() => dingSub.unsubscribe());
-				}
+				unsubscribers.push(() => dingSub.unsubscribe());
 			}
 		}
 
-		return () =>
-			unsubscribers.forEach((unsub) => {
-				unsub();
-			});
+		return () => unsubscribers.forEach((unsub) => unsub());
 	}
 
 	isConnected(userId: string): boolean {
@@ -474,31 +380,22 @@ class RingService extends EventEmitter {
 
 	disconnect(userId: string): void {
 		this.apiInstances.delete(userId);
-
-		// Clean up cameras for this user
+		const prefix = `${userId}:`;
 		for (const key of this.cameras.keys()) {
-			if (key.startsWith(`${userId}:`)) {
+			if (key.startsWith(prefix)) {
 				this.cameras.delete(key);
 				this.deviceStates.delete(key);
 			}
 		}
 	}
 
-	/**
-	 * Get device state by device ID (for tRPC router)
-	 */
 	getDeviceState(deviceId: string): RingDeviceState | undefined {
-		for (const [, state] of this.deviceStates.entries()) {
-			if (state.id === deviceId) {
-				return state;
-			}
+		for (const state of this.deviceStates.values()) {
+			if (state.id === deviceId) return state;
 		}
 		return undefined;
 	}
 
-	/**
-	 * Graceful shutdown - clear all state
-	 */
 	shutdown(): void {
 		this.apiInstances.clear();
 		this.cameras.clear();
@@ -509,7 +406,6 @@ class RingService extends EventEmitter {
 
 export const ringService = new RingService();
 
-// Helper for tRPC to get live state
 export function getRingLiveState(
 	deviceId: string,
 ): RingDeviceState | undefined {

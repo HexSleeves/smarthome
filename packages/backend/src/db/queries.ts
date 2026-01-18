@@ -25,14 +25,6 @@ export interface Device {
 	updated_at: string;
 }
 
-export interface Event {
-	id: string;
-	device_id: string;
-	type: string;
-	data: string;
-	created_at: string;
-}
-
 export interface DeviceCredential {
 	id: string;
 	user_id: string;
@@ -42,136 +34,64 @@ export interface DeviceCredential {
 	updated_at: string;
 }
 
-// User queries
 export const userQueries = {
-	create: db.prepare(`
-    INSERT INTO users (id, email, password_hash, name, role)
-    VALUES (?, ?, ?, ?, ?)
-  `),
-
-	findByEmail: db.prepare<[string], User>(`
-    SELECT * FROM users WHERE email = ?
-  `),
-
-	findById: db.prepare<[string], User>(`
-    SELECT * FROM users WHERE id = ?
-  `),
-
-	updateRole: db.prepare(`
-    UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-  `),
-
-	list: db.prepare<[], User>(`
-    SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC
-  `),
+	create: db.prepare(
+		"INSERT INTO users (id, email, password_hash, name, role) VALUES (?, ?, ?, ?, ?)",
+	),
+	findByEmail: db.prepare<[string], User>(
+		"SELECT * FROM users WHERE email = ?",
+	),
+	findById: db.prepare<[string], User>("SELECT * FROM users WHERE id = ?"),
+	list: db.prepare<[], User>("SELECT * FROM users ORDER BY created_at DESC"),
 };
 
-// Device queries
 export const deviceQueries = {
-	create: db.prepare(`
-    INSERT INTO devices (id, user_id, type, name, device_id, config)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `),
-
-	findById: db.prepare<[string], Device>(`
-    SELECT * FROM devices WHERE id = ?
-  `),
-
-	findByUserId: db.prepare<[string], Device>(`
-    SELECT * FROM devices WHERE user_id = ? ORDER BY created_at DESC
-  `),
-
-	findByType: db.prepare<[string, string], Device>(`
-    SELECT * FROM devices WHERE user_id = ? AND type = ?
-  `),
-
-	updateStatus: db.prepare(`
-    UPDATE devices SET status = ?, last_seen = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-  `),
-
-	updateConfig: db.prepare(`
-    UPDATE devices SET config = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-  `),
-
-	delete: db.prepare(`
-    DELETE FROM devices WHERE id = ?
-  `),
+	create: db.prepare(
+		"INSERT INTO devices (id, user_id, type, name, device_id, config) VALUES (?, ?, ?, ?, ?, ?)",
+	),
+	findById: db.prepare<[string], Device>("SELECT * FROM devices WHERE id = ?"),
+	findByType: db.prepare<[string, string], Device>(
+		"SELECT * FROM devices WHERE user_id = ? AND type = ?",
+	),
+	updateStatus: db.prepare(
+		"UPDATE devices SET status = ?, last_seen = CURRENT_TIMESTAMP WHERE id = ?",
+	),
 };
 
-// Event queries
-export const eventQueries = {
-	create: db.prepare(`
-    INSERT INTO events (id, device_id, type, data)
-    VALUES (?, ?, ?, ?)
-  `),
-
-	findByDevice: db.prepare<[string, number], Event>(`
-    SELECT * FROM events WHERE device_id = ? ORDER BY created_at DESC LIMIT ?
-  `),
-
-	findByType: db.prepare<[string, string, number], Event>(`
-    SELECT * FROM events WHERE device_id = ? AND type = ? ORDER BY created_at DESC LIMIT ?
-  `),
-
-	findRecent: db.prepare<[string, number], Event>(`
-    SELECT e.* FROM events e
-    JOIN devices d ON e.device_id = d.id
-    WHERE d.user_id = ?
-    ORDER BY e.created_at DESC LIMIT ?
-  `),
-};
-
-// Device credentials queries
 export const credentialQueries = {
 	upsert: db.prepare(`
-    INSERT INTO device_credentials (id, user_id, provider, credentials_encrypted)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(user_id, provider) DO UPDATE SET
-      credentials_encrypted = excluded.credentials_encrypted,
-      updated_at = CURRENT_TIMESTAMP
-  `),
-
-	findByProvider: db.prepare<[string, string], DeviceCredential>(`
-    SELECT * FROM device_credentials WHERE user_id = ? AND provider = ?
-  `),
-
-	findAllByProvider: db.prepare<[string], Pick<DeviceCredential, "user_id">>(`
-    SELECT user_id FROM device_credentials WHERE provider = ?
-  `),
-
-	delete: db.prepare(`
-    DELETE FROM device_credentials WHERE user_id = ? AND provider = ?
-  `),
+		INSERT INTO device_credentials (id, user_id, provider, credentials_encrypted)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(user_id, provider) DO UPDATE SET
+			credentials_encrypted = excluded.credentials_encrypted,
+			updated_at = CURRENT_TIMESTAMP
+	`),
+	findByProvider: db.prepare<[string, string], DeviceCredential>(
+		"SELECT * FROM device_credentials WHERE user_id = ? AND provider = ?",
+	),
+	findAllByProvider: db.prepare<[string], { user_id: string }>(
+		"SELECT user_id FROM device_credentials WHERE provider = ?",
+	),
 };
 
-// Session queries
 export const sessionQueries = {
-	create: db.prepare(`
-    INSERT INTO sessions (id, user_id, refresh_token, user_agent, ip_address, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `),
-
+	create: db.prepare(
+		"INSERT INTO sessions (id, user_id, refresh_token, user_agent, ip_address, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+	),
 	findByToken: db.prepare<
 		[string],
 		{ id: string; user_id: string; expires_at: string }
-	>(`
-    SELECT id, user_id, expires_at FROM sessions WHERE refresh_token = ?
-  `),
-
-	delete: db.prepare(`
-    DELETE FROM sessions WHERE id = ?
-  `),
-
-	deleteExpired: db.prepare(`
-    DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP
-  `),
-
-	deleteByUser: db.prepare(`
-    DELETE FROM sessions WHERE user_id = ?
-  `),
+	>("SELECT id, user_id, expires_at FROM sessions WHERE refresh_token = ?"),
+	delete: db.prepare("DELETE FROM sessions WHERE id = ?"),
+	deleteByUser: db.prepare("DELETE FROM sessions WHERE user_id = ?"),
 };
 
-// Helper functions
+export const eventQueries = {
+	create: db.prepare(
+		"INSERT INTO events (id, device_id, type, data) VALUES (?, ?, ?, ?)",
+	),
+};
+
 export function createUser(
 	email: string,
 	passwordHash: string,
@@ -181,9 +101,7 @@ export function createUser(
 	const id = uuid();
 	userQueries.create.run(id, email, passwordHash, name || null, role);
 	const user = userQueries.findById.get(id);
-	if (!user) {
-		throw new Error("Failed to create user");
-	}
+	if (!user) throw new Error("Failed to create user");
 	return user;
 }
 
@@ -204,9 +122,7 @@ export function createDevice(
 		JSON.stringify(config),
 	);
 	const device = deviceQueries.findById.get(id);
-	if (!device) {
-		throw new Error("Failed to create device");
-	}
+	if (!device) throw new Error("Failed to create device");
 	return device;
 }
 
@@ -214,25 +130,16 @@ export function createEvent(
 	deviceId: string,
 	type: string,
 	data: object = {},
-): Event {
-	const id = uuid();
-	eventQueries.create.run(id, deviceId, type, JSON.stringify(data));
-	return {
-		id,
-		device_id: deviceId,
-		type,
-		data: JSON.stringify(data),
-		created_at: new Date().toISOString(),
-	};
+): void {
+	eventQueries.create.run(uuid(), deviceId, type, JSON.stringify(data));
 }
 
 export function saveCredentials(
 	userId: string,
 	provider: "roborock" | "ring",
-	encryptedCredentials: string,
+	encrypted: string,
 ): void {
-	const id = uuid();
-	credentialQueries.upsert.run(id, userId, provider, encryptedCredentials);
+	credentialQueries.upsert.run(uuid(), userId, provider, encrypted);
 }
 
 export function getCredentials(
@@ -252,6 +159,7 @@ export function hasCredentials(
 export function getUsersWithCredentials(
 	provider: "roborock" | "ring",
 ): string[] {
-	const results = credentialQueries.findAllByProvider.all(provider);
-	return results.map((r) => r.user_id);
+	return credentialQueries.findAllByProvider
+		.all(provider)
+		.map((r) => r.user_id);
 }

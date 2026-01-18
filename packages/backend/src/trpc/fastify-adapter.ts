@@ -18,12 +18,10 @@ export async function registerTRPC(fastify: FastifyInstance) {
 			}): Promise<TRPCContext> => {
 				let user: User | null = null;
 
-				// Extract user from JWT
 				const authHeader = req.headers.authorization;
 				if (authHeader?.startsWith("Bearer ")) {
-					const token = authHeader.substring(7);
 					try {
-						const decoded = fastify.jwt.verify<User>(token);
+						const decoded = fastify.jwt.verify<User>(authHeader.slice(7));
 						user = {
 							id: decoded.id,
 							email: decoded.email,
@@ -31,15 +29,15 @@ export async function registerTRPC(fastify: FastifyInstance) {
 							role: decoded.role,
 						};
 					} catch {
-						// Invalid token, user remains null
+						// Invalid token
 					}
 				}
 
-				// Provide signJwt function for auth router
-				// Use unknown cast to bypass strict AuthUser typing for JWT signing
-				const signJwt = (payload: object, options?: { expiresIn?: string }) => {
-					return (fastify.jwt.sign as (payload: unknown, options?: unknown) => string)(payload, options);
-				};
+				const signJwt = (payload: object, options?: { expiresIn?: string }) =>
+					(fastify.jwt.sign as (p: unknown, o?: unknown) => string)(
+						payload,
+						options,
+					);
 
 				return { req, res, user, signJwt };
 			},

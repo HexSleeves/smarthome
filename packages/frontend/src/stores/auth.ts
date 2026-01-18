@@ -32,7 +32,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 	},
 
 	register: async (email, password, name) => {
-		const data = await trpcVanilla.auth.register.mutate({ email, password, name });
+		const data = await trpcVanilla.auth.register.mutate({
+			email,
+			password,
+			name,
+		});
 		setTokens(data.accessToken, data.refreshToken);
 		set({ user: data.user, isAuthenticated: true });
 	},
@@ -40,7 +44,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 	logout: async () => {
 		try {
 			const refreshToken = getRefreshToken();
-			await trpcVanilla.auth.logout.mutate({ refreshToken: refreshToken || undefined });
+			await trpcVanilla.auth.logout.mutate({
+				refreshToken: refreshToken || undefined,
+			});
 		} catch {
 			// Ignore errors - clear local state anyway
 		}

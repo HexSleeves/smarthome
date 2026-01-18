@@ -7,25 +7,27 @@ import { hasCredentials } from "../../db/queries.js";
 import { roborockService } from "../../services/roborock.js";
 import { adminProcedure, protectedProcedure, router } from "../trpc.js";
 
+const commandSchema = z.object({
+	deviceId: z.string(),
+	command: z.enum(["start", "pause", "stop", "home", "find"]),
+});
+
 export const roborockRouter = router({
 	status: protectedProcedure.query(
-		async ({ ctx }): Promise<RoborockStatusResponse> => {
-			return {
-				connected: roborockService.isConnected(ctx.user.id),
-				hasCredentials: hasCredentials(ctx.user.id, "roborock"),
-			};
-		},
+		async ({ ctx }): Promise<RoborockStatusResponse> => ({
+			connected: roborockService.isConnected(ctx.user.id),
+			hasCredentials: hasCredentials(ctx.user.id, "roborock"),
+		}),
 	),
 
 	devices: protectedProcedure.query(
-		async ({ ctx }): Promise<RoborockDevicesResponse> => {
-			const devices = await roborockService.getDevices(ctx.user.id);
-			return { devices };
-		},
+		async ({ ctx }): Promise<RoborockDevicesResponse> => ({
+			devices: await roborockService.getDevices(ctx.user.id),
+		}),
 	),
 
 	auth: adminProcedure
-		.input(z.object({ email: z.email(), password: z.string() }))
+		.input(z.object({ email: z.string().email(), password: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			await roborockService.authenticate(
 				ctx.user.id,
@@ -46,33 +48,21 @@ export const roborockRouter = router({
 	}),
 
 	command: adminProcedure
-		.input(
-			z.object({
-				deviceId: z.string(),
-				command: z.enum(["start", "pause", "stop", "home", "find"]),
-			}),
-		)
+		.input(commandSchema)
 		.mutation(async ({ ctx, input }) => {
 			const { deviceId, command } = input;
-			const userId = ctx.user.id;
+			const s = roborockService;
+			const uid = ctx.user.id;
 
-			switch (command) {
-				case "start":
-					await roborockService.startCleaning(userId, deviceId);
-					break;
-				case "pause":
-					await roborockService.pauseCleaning(userId, deviceId);
-					break;
-				case "stop":
-					await roborockService.stopCleaning(userId, deviceId);
-					break;
-				case "home":
-					await roborockService.returnHome(userId, deviceId);
-					break;
-				case "find":
-					await roborockService.findRobot(userId, deviceId);
-					break;
-			}
+			const actions: Record<string, () => Promise<boolean>> = {
+				start: () => s.startCleaning(uid, deviceId),
+				pause: () => s.pauseCleaning(uid, deviceId),
+				stop: () => s.stopCleaning(uid, deviceId),
+				home: () => s.returnHome(uid, deviceId),
+				find: () => s.findRobot(uid, deviceId),
+			};
+
+			await actions[command]();
 			return { success: true };
 		}),
 
@@ -109,12 +99,7 @@ export const roborockRouter = router({
 		}),
 
 	cleanRooms: adminProcedure
-		.input(
-			z.object({
-				deviceId: z.string(),
-				roomIds: z.array(z.number()),
-			}),
-		)
+		.input(z.object({ deviceId: z.string(), roomIds: z.array(z.number()) }))
 		.mutation(async ({ ctx, input }) => {
 			await roborockService.cleanRooms(
 				ctx.user.id,
@@ -126,11 +111,10 @@ export const roborockRouter = router({
 
 	history: protectedProcedure
 		.input(z.object({ deviceId: z.string() }))
-		.query(async ({ ctx, input }) => {
-			const history = await roborockService.getCleanHistory(
+		.query(async ({ ctx, input }) => ({
+			history: await roborockService.getCleanHistory(
 				ctx.user.id,
 				input.deviceId,
-			);
-			return { history };
-		}),
+			),
+		})),
 });

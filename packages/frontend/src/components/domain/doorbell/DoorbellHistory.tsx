@@ -21,7 +21,7 @@ export function DoorbellHistory({ deviceId }: DoorbellHistoryProps) {
 			<div className="space-y-2">
 				{history.map((event, i) => (
 					<div
-						key={event.id || i}
+						key={event.ding_id_str || i}
 						className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50"
 					>
 						<div
@@ -36,8 +36,8 @@ export function DoorbellHistory({ deviceId }: DoorbellHistoryProps) {
 									: event.kind || "Motion"}
 							</p>
 							<p className="text-xs text-gray-500">
-								{event.createdAt
-									? new Date(event.createdAt).toLocaleString()
+								{event.created_at
+									? new Date(event.created_at).toLocaleString()
 									: "Unknown time"}
 							</p>
 						</div>

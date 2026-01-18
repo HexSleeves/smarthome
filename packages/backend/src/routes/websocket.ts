@@ -51,10 +51,11 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 				const unsubscribe = ringService.subscribeToEvents(
 					decoded.id,
 					(event) => {
+						const { type: eventType, ...rest } = event;
 						ws.send(
 							JSON.stringify({
-								type: `ring:${event.type}`,
-								...event,
+								type: `ring:${eventType}`,
+								...rest,
 							}),
 						);
 					},
@@ -107,10 +108,11 @@ async function handleMessage(client: WsClient, message: WsIncomingMessage) {
 				const unsubscribe = ringService.subscribeToEvents(
 					client.userId,
 					(event) => {
+						const { type: eventType, ...rest } = event;
 						client.ws.send(
 							JSON.stringify({
-								type: `ring:${event.type}`,
-								...event,
+								type: `ring:${eventType}`,
+								...rest,
 							}),
 						);
 					},

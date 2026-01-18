@@ -482,7 +482,7 @@ class RoborockService extends EventEmitter {
 		return this.sendCommand(userId, deviceId, "find_me");
 	}
 
-	async getMap(userId: string, deviceId: string): Promise<any> {
+	async getMap(_userId: string, _deviceId: string): Promise<any> {
 		// Map data requires more complex handling
 		// For now, return null - would need to implement map decoding
 		return null;

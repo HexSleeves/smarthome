@@ -1,8 +1,8 @@
+import { CameraEvent } from "ring-client-api";
 import type {
 	Device,
 	DeviceEvent,
 	RingDeviceState,
-	RingEvent,
 	RoborockDeviceState,
 	RoborockCleanHistory,
 } from "./device";
@@ -51,5 +51,5 @@ export type RingDevicesResponse = {
 };
 
 export type RingHistoryResponse = {
-	history: RingEvent[];
+	history: CameraEvent[];
 };

@@ -7,13 +7,13 @@ import type { AuthUser } from "../middleware/auth.js";
 import { isZodError } from "../types.js";
 
 const registerSchema = z.object({
-	email: z.string().email(),
+	email: z.email(),
 	password: z.string().min(8),
 	name: z.string().optional(),
 });
 
 const loginSchema = z.object({
-	email: z.string().email(),
+	email: z.email(),
 	password: z.string(),
 });
 

@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { RingApi, type RingCamera } from "ring-client-api";
+import { type CameraEvent, RingApi, type RingCamera } from "ring-client-api";
 import { config } from "../config.js";
 import {
 	createDevice,
@@ -358,7 +358,7 @@ class RingService extends EventEmitter {
 		userId: string,
 		deviceId: string,
 		limit = 20,
-	): Promise<any[]> {
+	): Promise<CameraEvent[]> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
 		if (!camera) return [];
 
@@ -377,7 +377,7 @@ class RingService extends EventEmitter {
 		on: boolean,
 	): Promise<boolean> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
-		if (!camera || !camera.hasLight) return false;
+		if (!camera?.hasLight) return false;
 
 		try {
 			await camera.setLight(on);
@@ -390,7 +390,7 @@ class RingService extends EventEmitter {
 
 	async triggerSiren(userId: string, deviceId: string): Promise<boolean> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
-		if (!camera || !camera.hasSiren) return false;
+		if (!camera?.hasSiren) return false;
 
 		try {
 			await camera.setSiren(true);

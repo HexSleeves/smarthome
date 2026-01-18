@@ -1,5 +1,5 @@
-import { db } from "./schema.js";
 import { v4 as uuid } from "uuid";
+import { db } from "./schema.js";
 
 export interface User {
 	id: string;
@@ -176,7 +176,11 @@ export function createUser(
 ): User {
 	const id = uuid();
 	userQueries.create.run(id, email, passwordHash, name || null, role);
-	return userQueries.findById.get(id)!;
+	const user = userQueries.findById.get(id);
+	if (!user) {
+		throw new Error("Failed to create user");
+	}
+	return user;
 }
 
 export function createDevice(
@@ -195,7 +199,11 @@ export function createDevice(
 		deviceId || null,
 		JSON.stringify(config),
 	);
-	return deviceQueries.findById.get(id)!;
+	const device = deviceQueries.findById.get(id);
+	if (!device) {
+		throw new Error("Failed to create device");
+	}
+	return device;
 }
 
 export function createEvent(

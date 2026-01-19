@@ -1,15 +1,16 @@
 import { useEffect } from "react";
-import { wsClient } from "@/lib/websocket";
-import { useNotificationStore } from "@/stores/notifications";
 import {
 	getNotificationPermission,
 	notifyDoorbell,
 	notifyMotion,
 	notifyVacuumStatus,
 } from "@/lib/notifications";
+import { wsClient } from "@/lib/websocket";
+import { useNotificationStore } from "@/stores/notifications";
 
 export function useNotifications() {
-	const { enabled, doorbellAlerts, motionAlerts, vacuumAlerts } = useNotificationStore();
+	const { enabled, doorbellAlerts, motionAlerts, vacuumAlerts } =
+		useNotificationStore();
 
 	useEffect(() => {
 		if (!enabled || getNotificationPermission() !== "granted") {
@@ -23,7 +24,7 @@ export function useNotifications() {
 				wsClient.on("ring:ding", (data: Record<string, unknown>) => {
 					const deviceName = (data.deviceName as string) || "Front Door";
 					notifyDoorbell(deviceName);
-				})
+				}),
 			);
 		}
 
@@ -32,7 +33,7 @@ export function useNotifications() {
 				wsClient.on("ring:motion", (data: Record<string, unknown>) => {
 					const deviceName = (data.deviceName as string) || "Camera";
 					notifyMotion(deviceName);
-				})
+				}),
 			);
 		}
 
@@ -47,7 +48,7 @@ export function useNotifications() {
 							notifyVacuumStatus(deviceName, status);
 						}
 					}
-				})
+				}),
 			);
 		}
 

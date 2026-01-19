@@ -3,7 +3,7 @@
 export type NotificationPermissionState = "granted" | "denied" | "default";
 
 export function isNotificationSupported(): boolean {
-	return "Notification" in window;
+	return "Notification" in globalThis;
 }
 
 export function getNotificationPermission(): NotificationPermissionState {
@@ -13,7 +13,7 @@ export function getNotificationPermission(): NotificationPermissionState {
 
 export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
 	if (!isNotificationSupported()) return "denied";
-	
+
 	try {
 		const permission = await Notification.requestPermission();
 		return permission;
@@ -24,7 +24,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 
 export function showNotification(
 	title: string,
-	options?: NotificationOptions & { onClick?: () => void }
+	options?: NotificationOptions & { onClick?: () => void },
 ): Notification | null {
 	if (!isNotificationSupported() || Notification.permission !== "granted") {
 		return null;
@@ -38,7 +38,7 @@ export function showNotification(
 
 	if (options?.onClick) {
 		notification.onclick = () => {
-			window.focus();
+			globalThis.focus();
 			options.onClick?.();
 			notification.close();
 		};
@@ -57,7 +57,7 @@ export function notifyDoorbell(deviceName: string) {
 		tag: "doorbell", // Replaces existing doorbell notifications
 		requireInteraction: true,
 		onClick: () => {
-			window.location.href = "/doorbell";
+			globalThis.location.href = "/doorbell";
 		},
 	});
 }
@@ -67,7 +67,7 @@ export function notifyMotion(deviceName: string) {
 		body: `Motion detected at ${deviceName}`,
 		tag: "motion",
 		onClick: () => {
-			window.location.href = "/doorbell";
+			globalThis.location.href = "/doorbell";
 		},
 	});
 }

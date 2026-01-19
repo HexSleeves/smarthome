@@ -8,7 +8,11 @@ export function DoorbellPage() {
 	const { user } = useAuthStore();
 	const isAdmin = user?.role === "admin";
 
-	const { connected, hasCredentials, isLoading: statusLoading } = useRingStatus();
+	const {
+		connected,
+		hasCredentials,
+		isLoading: statusLoading,
+	} = useRingStatus();
 	const { devices, isLoading: devicesLoading } = useRingDevices();
 
 	// Show skeleton while loading

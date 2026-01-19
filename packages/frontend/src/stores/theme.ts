@@ -11,7 +11,7 @@ type ThemeStore = {
 export const useThemeStore = create<ThemeStore>()(
 	persist(
 		(set) => ({
-			theme: "system",
+			theme: "system" as Theme,
 			setTheme: (theme) => set({ theme }),
 		}),
 		{

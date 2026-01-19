@@ -27,8 +27,7 @@ export const useNotificationStore = create<NotificationStore>()(
 			setDoorbellAlerts: (doorbellAlerts) => set({ doorbellAlerts }),
 			setMotionAlerts: (motionAlerts) => set({ motionAlerts }),
 			setVacuumAlerts: (vacuumAlerts) => set({ vacuumAlerts }),
-			toggleSetting: (key) =>
-				set((state) => ({ [key]: !state[key] })),
+			toggleSetting: (key) => set((state) => ({ [key]: !state[key] })),
 		}),
 		{
 			name: "smarthome-notifications",

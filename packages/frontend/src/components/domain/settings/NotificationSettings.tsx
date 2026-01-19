@@ -1,17 +1,23 @@
 import { Bell, BellOff, BellRing } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useNotificationStore } from "@/stores/notifications";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
 	getNotificationPermission,
 	isNotificationSupported,
 	requestNotificationPermission,
 	showNotification,
 } from "@/lib/notifications";
+import { useNotificationStore } from "@/stores/notifications";
 
 function NotificationToggle({
 	label,
@@ -29,7 +35,9 @@ function NotificationToggle({
 	return (
 		<div className="flex items-center justify-between py-3">
 			<div className="space-y-0.5">
-				<Label className={disabled ? "text-muted-foreground" : ""}>{label}</Label>
+				<Label className={disabled ? "text-muted-foreground" : ""}>
+					{label}
+				</Label>
 				<p className="text-sm text-muted-foreground">{description}</p>
 			</div>
 			<Button
@@ -65,10 +73,11 @@ export function NotificationSettings() {
 		const checkPermission = () => {
 			setPermission(getNotificationPermission());
 		};
-		
+
 		// Check on visibility change (user might have changed settings)
 		document.addEventListener("visibilitychange", checkPermission);
-		return () => document.removeEventListener("visibilitychange", checkPermission);
+		return () =>
+			document.removeEventListener("visibilitychange", checkPermission);
 	}, []);
 
 	const handleEnableNotifications = async () => {
@@ -116,7 +125,9 @@ export function NotificationSettings() {
 						<BellRing className="w-5 h-5" />
 						Notifications
 					</CardTitle>
-					<CardDescription>Get alerts for doorbell and motion events</CardDescription>
+					<CardDescription>
+						Get alerts for doorbell and motion events
+					</CardDescription>
 				</div>
 				{permission === "granted" && (
 					<Badge variant={enabled ? "success" : "secondary"}>
@@ -129,13 +140,15 @@ export function NotificationSettings() {
 					<Alert variant="warning">
 						<Bell className="h-4 w-4" />
 						<AlertDescription>
-							Notifications are blocked. Please enable them in your browser settings.
+							Notifications are blocked. Please enable them in your browser
+							settings.
 						</AlertDescription>
 					</Alert>
 				) : permission === "default" ? (
 					<div className="space-y-4">
 						<p className="text-muted-foreground">
-							Enable notifications to get alerts when someone rings your doorbell or motion is detected.
+							Enable notifications to get alerts when someone rings your
+							doorbell or motion is detected.
 						</p>
 						<Button onClick={handleEnableNotifications} disabled={requesting}>
 							<Bell className="w-4 h-4 mr-2" />

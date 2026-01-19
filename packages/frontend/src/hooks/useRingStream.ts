@@ -45,12 +45,8 @@ export function useRingStream(deviceId: string) {
 			videoRef.current = videoElement;
 
 			try {
-				console.log("Starting HLS stream...");
-
 				// Request HLS stream from server
 				const result = await startStreamMutation.mutateAsync({ deviceId });
-				console.log("Server response:", result);
-
 				if (!result.success || !result.streamUrl) {
 					throw new Error(result.error || "Failed to start stream");
 				}
@@ -60,9 +56,6 @@ export function useRingStream(deviceId: string) {
 				// Get auth token for stream requests
 				const token = getAccessToken() || "";
 				const streamUrl = `${result.streamUrl}?token=${encodeURIComponent(token)}`;
-
-				console.log("HLS stream URL:", streamUrl);
-				console.log("Token present:", !!token, "Token length:", token.length);
 
 				// Wait for the stream to initialize and first segments to be ready
 				// HLS needs time for ffmpeg to start and create first segment
@@ -90,7 +83,6 @@ export function useRingStream(deviceId: string) {
 					hlsRef.current = hls;
 
 					hls.on(Hls.Events.MANIFEST_PARSED, () => {
-						console.log("HLS manifest parsed, starting playback");
 						videoElement.play().catch(console.error);
 						setState("streaming");
 					});
@@ -100,11 +92,9 @@ export function useRingStream(deviceId: string) {
 						if (data.fatal) {
 							switch (data.type) {
 								case Hls.ErrorTypes.NETWORK_ERROR:
-									console.log("Network error, trying to recover...");
 									hls.startLoad();
 									break;
 								case Hls.ErrorTypes.MEDIA_ERROR:
-									console.log("Media error, trying to recover...");
 									hls.recoverMediaError();
 									break;
 								default:
@@ -134,7 +124,6 @@ export function useRingStream(deviceId: string) {
 					throw new Error("HLS not supported in this browser");
 				}
 			} catch (err) {
-				console.error("Failed to start stream:", err);
 				setState("error");
 				setError(err instanceof Error ? err.message : "Failed to start stream");
 				isStreamingRef.current = false;

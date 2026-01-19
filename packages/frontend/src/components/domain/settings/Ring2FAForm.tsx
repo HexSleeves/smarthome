@@ -120,7 +120,11 @@ export function Ring2FAForm({
 							onClick={onCancel}
 							disabled={isCancelling}
 						>
-							{isCancelling ? "Cancelling..." : isPending ? "Start Over" : "Cancel"}
+							{isCancelling
+								? "Cancelling..."
+								: isPending
+									? "Start Over"
+									: "Cancel"}
 						</Button>
 					</div>
 				)}
@@ -128,8 +132,8 @@ export function Ring2FAForm({
 
 			{isPending && (
 				<p className="text-xs text-muted-foreground text-center">
-					Code was sent to your phone during a previous login attempt.
-					If expired, click "Start Over" to request a new code.
+					Code was sent to your phone during a previous login attempt. If
+					expired, click "Start Over" to request a new code.
 				</p>
 			)}
 		</form>

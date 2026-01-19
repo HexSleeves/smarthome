@@ -1,4 +1,11 @@
-import { AlertTriangle, Bell, CheckCircle, Loader2, Smartphone, XCircle } from "lucide-react";
+import {
+	AlertTriangle,
+	Bell,
+	CheckCircle,
+	Loader2,
+	Smartphone,
+	XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +99,49 @@ export function RingSettings() {
 		return "disconnected";
 	};
 
+	const renderContent = () => {
+		if (connected) {
+			return (
+				<ConnectedState
+					onDisconnect={disconnect}
+					isDisconnecting={isDisconnecting}
+				/>
+			);
+		}
+
+		if (hasCredentials && !requiresTwoFactor) {
+			return (
+				<StoredCredentialsState
+					onConnect={handleConnect}
+					isConnecting={isConnecting}
+					error={error}
+				/>
+			);
+		}
+
+		if (requiresTwoFactor) {
+			return (
+				<Ring2FAForm
+					prompt={twoFactorPrompt}
+					onSubmit={handle2FA}
+					onCancel={handleCancel2FA}
+					isSubmitting={isSubmitting2FA}
+					isCancelling={isCancelling2FA}
+					error={error}
+					isPending={pending2FA}
+				/>
+			);
+		}
+
+		return (
+			<RingAuthForm
+				onSubmit={handleAuth}
+				isSubmitting={isAuthenticating}
+				error={error}
+			/>
+		);
+	};
+
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -116,34 +166,7 @@ export function RingSettings() {
 					/>
 				)}
 
-				{connected ? (
-					<ConnectedState
-						onDisconnect={disconnect}
-						isDisconnecting={isDisconnecting}
-					/>
-				) : hasCredentials && !requiresTwoFactor ? (
-					<StoredCredentialsState
-						onConnect={handleConnect}
-						isConnecting={isConnecting}
-						error={error}
-					/>
-				) : requiresTwoFactor ? (
-					<Ring2FAForm
-						prompt={twoFactorPrompt}
-						onSubmit={handle2FA}
-						onCancel={handleCancel2FA}
-						isSubmitting={isSubmitting2FA}
-						isCancelling={isCancelling2FA}
-						error={error}
-						isPending={pending2FA}
-					/>
-				) : (
-					<RingAuthForm
-						onSubmit={handleAuth}
-						isSubmitting={isAuthenticating}
-						error={error}
-					/>
-				)}
+				{renderContent()}
 			</CardContent>
 		</Card>
 	);
@@ -196,14 +219,20 @@ function Pending2FAAlert({
 			<AlertTitle>2FA Verification Pending</AlertTitle>
 			<AlertDescription className="mt-2">
 				<p className="mb-3">
-					A previous login attempt requires 2FA verification. Check your phone for the code.
+					A previous login attempt requires 2FA verification. Check your phone
+					for the code.
 				</p>
 				<div className="flex gap-2">
 					<Button size="sm" onClick={onResume}>
 						<Smartphone className="w-4 h-4 mr-1" />
 						Enter Code
 					</Button>
-					<Button size="sm" variant="outline" onClick={onCancel} disabled={isCancelling}>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={onCancel}
+						disabled={isCancelling}
+					>
 						{isCancelling ? "Cancelling..." : "Start Over"}
 					</Button>
 				</div>

@@ -30,9 +30,7 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 	}, []);
 
 	const handleStartStream = useCallback(() => {
-		console.log("handleStartStream called, videoRef:", videoRef.current);
 		if (videoRef.current) {
-			console.log("Calling startStream...");
 			startStream(videoRef.current);
 		} else {
 			console.log("No videoRef!");

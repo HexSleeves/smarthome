@@ -10,10 +10,12 @@ import {
 export function DashboardStats() {
 	const { devices, isLoading: devicesLoading } = useDevices();
 	const { events, isLoading: eventsLoading } = useRecentEvents(10);
-	const { connected: roborockConnected, isLoading: roborockLoading } = useRoborockStatus();
+	const { connected: roborockConnected, isLoading: roborockLoading } =
+		useRoborockStatus();
 	const { connected: ringConnected, isLoading: ringLoading } = useRingStatus();
 
-	const isLoading = devicesLoading || eventsLoading || roborockLoading || ringLoading;
+	const isLoading =
+		devicesLoading || eventsLoading || roborockLoading || ringLoading;
 
 	if (isLoading) {
 		return (

@@ -1,14 +1,23 @@
 import { Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 import { DoorbellCard } from "@/components/domain/doorbell";
-import { DeviceCardSkeleton, DeviceSectionSkeleton, EmptyState } from "@/components/ui";
+import {
+	DeviceCardSkeleton,
+	DeviceSectionSkeleton,
+	EmptyState,
+} from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDevicesByType, useRingStatus } from "@/hooks";
 
 export function DoorbellSection() {
-	const { connected, hasCredentials, isLoading: statusLoading } = useRingStatus();
-	const { devices: doorbells, isLoading: devicesLoading } = useDevicesByType("ring");
+	const {
+		connected,
+		hasCredentials,
+		isLoading: statusLoading,
+	} = useRingStatus();
+	const { devices: doorbells, isLoading: devicesLoading } =
+		useDevicesByType("ring");
 
 	// Show skeleton while loading initial status
 	if (statusLoading) {

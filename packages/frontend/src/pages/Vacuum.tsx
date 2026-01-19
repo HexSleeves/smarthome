@@ -8,7 +8,11 @@ export function VacuumPage() {
 	const { user } = useAuthStore();
 	const isAdmin = user?.role === "admin";
 
-	const { connected, hasCredentials, isLoading: statusLoading } = useRoborockStatus();
+	const {
+		connected,
+		hasCredentials,
+		isLoading: statusLoading,
+	} = useRoborockStatus();
 	const { devices, isLoading: devicesLoading } = useRoborockDevices();
 
 	// Show skeleton while loading

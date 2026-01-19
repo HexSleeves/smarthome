@@ -14,7 +14,7 @@ export function ThemeToggle() {
 
 	// Listen for system theme changes
 	useEffect(() => {
-		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+		const mediaQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
 		const handleChange = () => {
 			if (theme === "system") {
 				applyTheme("system");

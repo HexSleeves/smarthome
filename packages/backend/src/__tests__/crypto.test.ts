@@ -68,7 +68,7 @@ describe("crypto", () => {
 
 			// Tamper with the encrypted part
 			const parts = encrypted.split(":");
-			parts[3] = "tampered" + parts[3].slice(8);
+			parts[3] = `tampered${parts[3].slice(8)}`;
 			const tampered = parts.join(":");
 
 			expect(() => decrypt(tampered, secret)).toThrow();

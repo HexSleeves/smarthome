@@ -49,9 +49,7 @@ async function main() {
 
 	const corsOrigin = config.CORS_ORIGIN
 		? config.CORS_ORIGIN.split(",").map((o) => o.trim())
-		: config.NODE_ENV === "production"
-			? false
-			: true;
+		: config.NODE_ENV !== "production";
 
 	await fastify.register(cors, { origin: corsOrigin, credentials: true });
 	await fastify.register(formbody);

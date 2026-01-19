@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { AuthUser } from "../middleware/auth.js";
+import type { FastifyInstance } from "fastify";
 import { ringService } from "../services/ring.js";
 import type { JwtPayload } from "../types.js";
 

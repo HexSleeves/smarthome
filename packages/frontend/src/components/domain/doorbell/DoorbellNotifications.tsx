@@ -75,8 +75,8 @@ export function DoorbellNotifications({
 				<AlertTitle>Recent Activity</AlertTitle>
 				<AlertDescription>
 					<div className="mt-2 space-y-1">
-						{notifications.map((notif, i) => (
-							<div key={i} className="text-sm">
+						{notifications.map((notif) => (
+							<div key={`${notif.type}-${notif.time.getTime()}`} className="text-sm">
 								{notif.type === "ding"
 									? "🔔 Doorbell pressed"
 									: "🚶 Motion detected"}

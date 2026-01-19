@@ -109,7 +109,7 @@ export function useRingStream(deviceId: string) {
 									break;
 								default:
 									setState("error");
-									setError("Stream error: " + data.details);
+									setError(`Stream error: ${data.details}`);
 									isStreamingRef.current = false;
 									cleanup();
 									break;

@@ -376,7 +376,7 @@ class RoborockService extends EventEmitter {
 
 			const loginData = await loginResponse.json();
 			log.info(
-				{ code: loginData.code, msg: loginData.msg },
+				{ code: loginData.code, msg: loginData.msg, data: loginData.data },
 				"2FA login response",
 			);
 
@@ -456,16 +456,45 @@ class RoborockService extends EventEmitter {
 		const baseURL = `https://${creds.baseURL || "usiot.roborock.com"}`;
 		log.info({ userId, baseURL }, "Discovering Roborock devices");
 		try {
-			const response = await fetch(`${baseURL}/api/v1/getHomeDetail`, {
-				headers: { Authorization: `Bearer ${creds.token}` },
+			// Get home detail - this gives us the home ID
+			const homeResponse = await fetch(`${baseURL}/api/v1/getHomeDetail`, {
+				headers: { Authorization: creds.token },
 			});
-
-			const data = await response.json();
+			const homeData = await homeResponse.json();
 			log.info(
-				{ status: response.status, data },
+				{ status: homeResponse.status, data: homeData },
 				"Roborock getHomeDetail response",
 			);
-			const devices = data.result?.devices || data.data?.devices || [];
+
+			const rrHomeId = homeData.data?.rrHomeId;
+			if (!rrHomeId) {
+				log.warn({ userId }, "No rrHomeId found - authentication may need to be refreshed");
+				return;
+			}
+
+			// Store the homeId for later use
+			creds.homeId = String(rrHomeId);
+
+			// Note: To get the actual device list, we need HAWK authentication
+			// which requires rriot credentials from the v1 login.
+			// The current v4 login flow doesn't provide these.
+			// For now, we'll log this limitation.
+			log.info(
+				{ userId, rrHomeId },
+				"Home found. Device list requires HAWK authentication - re-authentication with v1 API needed",
+			);
+
+			// Try the devices endpoint anyway in case the API has changed
+			const devicesResponse = await fetch(`${baseURL}/api/v1/home/${rrHomeId}/devices`, {
+				headers: { Authorization: creds.token },
+			});
+			const devicesData = await devicesResponse.json();
+			log.info(
+				{ status: devicesResponse.status, code: devicesData.code, msg: devicesData.msg },
+				"Roborock devices endpoint response",
+			);
+
+			const devices = devicesData.result?.devices || devicesData.data?.devices || devicesData.data || [];
 
 			for (const device of devices) {
 				const key = `${userId}:${device.duid}`;
@@ -525,7 +554,7 @@ class RoborockService extends EventEmitter {
 			const response = await fetch(
 				`${baseURL}/api/v1/user/devices/${deviceId}/status`,
 				{
-					headers: { Authorization: `Bearer ${creds.token}` },
+					headers: { Authorization: creds.token },
 				},
 			);
 
@@ -602,7 +631,7 @@ class RoborockService extends EventEmitter {
 				{
 					method: "POST",
 					headers: {
-						Authorization: `Bearer ${creds.token}`,
+						Authorization: creds.token,
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({ method: command, params }),
@@ -678,7 +707,7 @@ class RoborockService extends EventEmitter {
 			const response = await fetch(
 				`${baseURL}/api/v1/user/devices/${deviceId}/clean_summary`,
 				{
-					headers: { Authorization: `Bearer ${creds.token}` },
+					headers: { Authorization: creds.token },
 				},
 			);
 			const data = await response.json();

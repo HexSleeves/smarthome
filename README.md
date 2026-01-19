@@ -53,29 +53,34 @@ ENCRYPTION_SECRET=your-encryption-key
 ## API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/register` - Create account
 - `POST /api/auth/login` - Login
 - `POST /api/auth/refresh` - Refresh token
 - `GET /api/auth/me` - Get current user
 
 ### Devices
+
 - `GET /api/devices` - List all devices
 - `GET /api/devices/:id` - Get device details
 - `GET /api/devices/:id/events` - Get device events
 
 ### Roborock
+
 - `GET /api/roborock/status` - Connection status
 - `POST /api/roborock/auth` - Authenticate
 - `GET /api/roborock/devices` - List vacuums
 - `POST /api/roborock/devices/:id/command` - Send command
 
 ### Ring
+
 - `GET /api/ring/status` - Connection status
 - `POST /api/ring/auth` - Authenticate (supports 2FA)
 - `GET /api/ring/devices` - List cameras
 - `GET /api/ring/devices/:id/snapshot` - Get camera snapshot
 
 ### WebSocket
+
 - `WS /api/ws/events?token=JWT` - Real-time events
 
 ## Architecture

@@ -1,12 +1,25 @@
 import { useForm } from "@tanstack/react-form";
-import { CheckCircle, Eye, EyeOff, Loader2, Wifi, XCircle } from "lucide-react";
+import {
+	CheckCircle,
+	Eye,
+	EyeOff,
+	Loader2,
+	Mail,
+	Wifi,
+	XCircle,
+} from "lucide-react";
 import { useState } from "react";
 import { FieldError } from "@/components/ui";
 import { useRoborockAuth, useRoborockStatus } from "@/hooks";
 
+type AuthStep = "credentials" | "2fa";
+
 export function RoborockSettings() {
 	const [showPassword, setShowPassword] = useState(false);
 	const [error, setError] = useState("");
+	const [authStep, setAuthStep] = useState<AuthStep>("credentials");
+	const [pendingEmail, setPendingEmail] = useState("");
+	const [verificationCode, setVerificationCode] = useState("");
 
 	const {
 		connected,
@@ -15,9 +28,13 @@ export function RoborockSettings() {
 	} = useRoborockStatus();
 	const {
 		authenticate,
+		send2FACode,
+		verify2FACode,
 		connect,
 		disconnect,
 		isAuthenticating,
+		isSending2FACode,
+		isVerifying2FACode,
 		isConnecting,
 		isDisconnecting,
 	} = useRoborockAuth();
@@ -30,13 +47,59 @@ export function RoborockSettings() {
 		onSubmit: async ({ value }) => {
 			setError("");
 			try {
-				await authenticate(value.email, value.password);
-				form.reset();
+				const result = await authenticate(value.email, value.password);
+				if (result.twoFactorRequired) {
+					// 2FA required - send code and switch to 2FA step
+					setPendingEmail(value.email);
+					try {
+						await send2FACode(value.email);
+						setAuthStep("2fa");
+					} catch (err) {
+						setError(
+							err instanceof Error
+								? err.message
+								: "Failed to send verification code",
+						);
+					}
+				} else {
+					// Success - reset form
+					form.reset();
+				}
 			} catch (err) {
 				setError(err instanceof Error ? err.message : "Authentication failed");
 			}
 		},
 	});
+
+	const handleVerify2FA = async () => {
+		setError("");
+		try {
+			await verify2FACode(verificationCode);
+			// Success - reset everything
+			form.reset();
+			setAuthStep("credentials");
+			setPendingEmail("");
+			setVerificationCode("");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Verification failed");
+		}
+	};
+
+	const handleResendCode = async () => {
+		setError("");
+		try {
+			await send2FACode(pendingEmail);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to resend code");
+		}
+	};
+
+	const handleBackToCredentials = () => {
+		setAuthStep("credentials");
+		setPendingEmail("");
+		setVerificationCode("");
+		setError("");
+	};
 
 	const handleConnect = async () => {
 		setError("");
@@ -100,6 +163,70 @@ export function RoborockSettings() {
 						className="btn btn-primary"
 					>
 						{isConnecting ? "Connecting..." : "Connect"}
+					</button>
+				</div>
+			) : authStep === "2fa" ? (
+				<div className="space-y-4">
+					<div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+						<Mail className="w-5 h-5" />
+						<span className="font-medium">Verification Required</span>
+					</div>
+					<p className="text-gray-600 dark:text-gray-400">
+						A verification code has been sent to{" "}
+						<span className="font-medium">{pendingEmail}</span>. Please enter it
+						below.
+					</p>
+
+					{error && (
+						<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
+							{error}
+						</div>
+					)}
+
+					<div>
+						<label
+							htmlFor="verification-code"
+							className="block text-sm font-medium mb-1"
+						>
+							Verification Code
+						</label>
+						<input
+							id="verification-code"
+							type="text"
+							value={verificationCode}
+							onChange={(e) => setVerificationCode(e.target.value)}
+							className="input w-full font-mono text-center text-lg tracking-widest"
+							placeholder="000000"
+							maxLength={6}
+							autoComplete="one-time-code"
+						/>
+					</div>
+
+					<div className="flex gap-2">
+						<button
+							type="button"
+							onClick={handleVerify2FA}
+							disabled={isVerifying2FACode || !verificationCode}
+							className="btn btn-primary flex-1"
+						>
+							{isVerifying2FACode ? "Verifying..." : "Verify"}
+						</button>
+						<button
+							type="button"
+							onClick={handleBackToCredentials}
+							className="btn btn-secondary"
+						>
+							Back
+						</button>
+					</div>
+
+					<button
+						type="button"
+						onClick={handleResendCode}
+						disabled={isSending2FACode}
+						className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+					>
+						{isSending2FACode ? "Sending..." : "Resend code"}
 					</button>
 				</div>
 			) : (
@@ -203,10 +330,12 @@ export function RoborockSettings() {
 						children={([canSubmit]) => (
 							<button
 								type="submit"
-								disabled={!canSubmit || isAuthenticating}
+								disabled={!canSubmit || isAuthenticating || isSending2FACode}
 								className="btn btn-primary"
 							>
-								{isAuthenticating ? "Connecting..." : "Connect Roborock"}
+								{isAuthenticating || isSending2FACode
+									? "Connecting..."
+									: "Connect Roborock"}
 							</button>
 						)}
 					/>

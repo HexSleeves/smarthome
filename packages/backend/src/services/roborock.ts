@@ -27,11 +27,11 @@ const DEFAULT_HEADERS = {
 	header_phonesystem: "Android",
 };
 
-function normalizeBaseURL(baseURL: string): string {
-	return baseURL.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-}
-
-function getRegionFromEmail(email: string): { baseURL: string; country: string; countryCode: string } {
+function getRegionFromEmail(_email: string): {
+	baseURL: string;
+	country: string;
+	countryCode: string;
+} {
 	// Simple region detection - default to US
 	return { baseURL: "usiot.roborock.com", country: "US", countryCode: "1" };
 }
@@ -134,16 +134,30 @@ class RoborockService extends EventEmitter {
 	private readonly pendingAuth = new Map<string, PendingAuth>();
 
 	private generateClientId(email: string): string {
-		return crypto.createHash("md5").update(email).update(crypto.randomUUID()).digest().toString("base64");
+		return crypto
+			.createHash("md5")
+			.update(email)
+			.update(crypto.randomUUID())
+			.digest()
+			.toString("base64");
 	}
 
 	private generateNonce(): string {
-		return crypto.randomBytes(12).toString("base64").substring(0, 16).replace(/\+/g, "X").replace(/\//g, "Y");
+		return crypto
+			.randomBytes(12)
+			.toString("base64")
+			.substring(0, 16)
+			.replace(/\+/g, "X")
+			.replace(/\//g, "Y");
 	}
 
 	private encryptPassword(password: string, k: string): string {
 		const derivedKey = k.slice(4) + k.slice(0, 4);
-		const cipher = crypto.createCipheriv("aes-128-ecb", Buffer.from(derivedKey, "utf-8"), null);
+		const cipher = crypto.createCipheriv(
+			"aes-128-ecb",
+			Buffer.from(derivedKey, "utf-8"),
+			null,
+		);
 		cipher.setAutoPadding(true);
 		let encrypted = cipher.update(password, "utf8", "base64");
 		encrypted += cipher.final("base64");
@@ -152,7 +166,12 @@ class RoborockService extends EventEmitter {
 
 	private getHeaders(email: string, clientId: string): Record<string, string> {
 		return {
-			header_clientid: crypto.createHash("md5").update(email).update(clientId).digest().toString("base64"),
+			header_clientid: crypto
+				.createHash("md5")
+				.update(email)
+				.update(clientId)
+				.digest()
+				.toString("base64"),
 			header_clientlang: DEFAULT_HEADERS.header_clientlang,
 			header_appversion: DEFAULT_HEADERS.header_appversion,
 			header_phonemodel: DEFAULT_HEADERS.header_phonemodel,
@@ -165,7 +184,11 @@ class RoborockService extends EventEmitter {
 		userId: string,
 		email: string,
 		password: string,
-	): Promise<{ success: boolean; error?: string; twoFactorRequired?: boolean }> {
+	): Promise<{
+		success: boolean;
+		error?: string;
+		twoFactorRequired?: boolean;
+	}> {
 		log.info({ userId, email }, "Roborock authentication attempt");
 		try {
 			const region = getRegionFromEmail(email);
@@ -192,7 +215,7 @@ class RoborockService extends EventEmitter {
 			// Step 2: Login with password
 			log.info("Attempting password login");
 			const encryptedPassword = this.encryptPassword(password, k);
-			
+
 			const loginParams = new URLSearchParams({
 				email,
 				password: encryptedPassword,
@@ -211,18 +234,35 @@ class RoborockService extends EventEmitter {
 			});
 
 			const loginData = await loginResponse.json();
-			log.info({ code: loginData.code, msg: loginData.msg, hasData: !!loginData.data }, "Login response");
+			log.info(
+				{ code: loginData.code, msg: loginData.msg, hasData: !!loginData.data },
+				"Login response",
+			);
 
 			// Check for 2FA requirement
 			if (loginData.code === 2031) {
 				log.info({ userId }, "Two-factor authentication required");
-				this.pendingAuth.set(userId, { email, baseURL: region.baseURL, clientId });
-				return { success: false, twoFactorRequired: true, error: "Two-factor authentication required" };
+				this.pendingAuth.set(userId, {
+					email,
+					baseURL: region.baseURL,
+					clientId,
+				});
+				return {
+					success: false,
+					twoFactorRequired: true,
+					error: "Two-factor authentication required",
+				};
 			}
 
 			if (loginData.code !== 200 || !loginData.data) {
-				log.warn({ code: loginData.code, msg: loginData.msg }, "Roborock authentication failed");
-				return { success: false, error: loginData.msg || "Authentication failed" };
+				log.warn(
+					{ code: loginData.code, msg: loginData.msg },
+					"Roborock authentication failed",
+				);
+				return {
+					success: false,
+					error: loginData.msg || "Authentication failed",
+				};
 			}
 
 			return this.completeLogin(userId, loginData.data, region.baseURL);
@@ -235,7 +275,10 @@ class RoborockService extends EventEmitter {
 		}
 	}
 
-	async send2FACode(userId: string, email: string): Promise<{ success: boolean; error?: string }> {
+	async send2FACode(
+		userId: string,
+		email: string,
+	): Promise<{ success: boolean; error?: string }> {
 		log.info({ userId, email }, "Sending 2FA code");
 		try {
 			const region = getRegionFromEmail(email);
@@ -262,20 +305,33 @@ class RoborockService extends EventEmitter {
 			}
 
 			// Store pending auth info
-			this.pendingAuth.set(userId, { email, baseURL: region.baseURL, clientId });
+			this.pendingAuth.set(userId, {
+				email,
+				baseURL: region.baseURL,
+				clientId,
+			});
 			return { success: true };
 		} catch (error) {
 			log.error({ error }, "Failed to send 2FA code");
-			return { success: false, error: error instanceof Error ? error.message : "Failed to send code" };
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to send code",
+			};
 		}
 	}
 
-	async verify2FACode(userId: string, code: string): Promise<{ success: boolean; error?: string }> {
+	async verify2FACode(
+		userId: string,
+		code: string,
+	): Promise<{ success: boolean; error?: string }> {
 		log.info({ userId }, "Verifying 2FA code");
 		try {
 			const pending = this.pendingAuth.get(userId);
 			if (!pending) {
-				return { success: false, error: "No pending authentication. Please start login again." };
+				return {
+					success: false,
+					error: "No pending authentication. Please start login again.",
+				};
 			}
 
 			const { email, baseURL, clientId } = pending;
@@ -283,10 +339,13 @@ class RoborockService extends EventEmitter {
 			const nonce = this.generateNonce();
 
 			// Get signing key
-			const signResponse = await fetch(`${fullBaseURL}/${API_V3_SIGN}?s=${nonce}`, {
-				method: "POST",
-				headers: this.getHeaders(email, clientId),
-			});
+			const signResponse = await fetch(
+				`${fullBaseURL}/${API_V3_SIGN}?s=${nonce}`,
+				{
+					method: "POST",
+					headers: this.getHeaders(email, clientId),
+				},
+			);
 			const signData = await signResponse.json();
 
 			if (!signData?.data?.k) {
@@ -316,17 +375,26 @@ class RoborockService extends EventEmitter {
 			});
 
 			const loginData = await loginResponse.json();
-			log.info({ code: loginData.code, msg: loginData.msg }, "2FA login response");
+			log.info(
+				{ code: loginData.code, msg: loginData.msg },
+				"2FA login response",
+			);
 
 			if (loginData.code !== 200 || !loginData.data) {
-				return { success: false, error: loginData.msg || "Verification failed" };
+				return {
+					success: false,
+					error: loginData.msg || "Verification failed",
+				};
 			}
 
 			this.pendingAuth.delete(userId);
 			return this.completeLogin(userId, loginData.data, baseURL);
 		} catch (error) {
 			log.error({ error }, "2FA verification error");
-			return { success: false, error: error instanceof Error ? error.message : "Verification failed" };
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Verification failed",
+			};
 		}
 	}
 
@@ -342,7 +410,10 @@ class RoborockService extends EventEmitter {
 			rruid: data.rruid,
 			baseURL,
 		};
-		log.info({ roborockUserId: creds.userId, rruid: creds.rruid }, "Roborock credentials obtained");
+		log.info(
+			{ roborockUserId: creds.userId, rruid: creds.rruid },
+			"Roborock credentials obtained",
+		);
 
 		saveCredentials(
 			userId,
@@ -390,7 +461,10 @@ class RoborockService extends EventEmitter {
 			});
 
 			const data = await response.json();
-			log.info({ status: response.status, data }, "Roborock getHomeDetail response");
+			log.info(
+				{ status: response.status, data },
+				"Roborock getHomeDetail response",
+			);
 			const devices = data.result?.devices || data.data?.devices || [];
 
 			for (const device of devices) {
@@ -429,7 +503,10 @@ class RoborockService extends EventEmitter {
 
 				await this.refreshDeviceStatus(userId, device.duid);
 			}
-			log.info({ userId, deviceCount: devices.length }, "Device discovery complete");
+			log.info(
+				{ userId, deviceCount: devices.length },
+				"Device discovery complete",
+			);
 		} catch (error) {
 			log.error({ error, userId }, "Error discovering devices");
 		}

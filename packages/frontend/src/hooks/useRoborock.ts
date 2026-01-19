@@ -65,6 +65,17 @@ export function useRoborockAuth() {
 	const utils = trpc.useUtils();
 
 	const authMutation = trpc.roborock.auth.useMutation({
+		onSuccess: (data) => {
+			if (data.success) {
+				utils.roborock.status.invalidate();
+				utils.roborock.devices.invalidate();
+			}
+		},
+	});
+
+	const send2FACodeMutation = trpc.roborock.send2FACode.useMutation();
+
+	const verify2FACodeMutation = trpc.roborock.verify2FACode.useMutation({
 		onSuccess: () => {
 			utils.roborock.status.invalidate();
 			utils.roborock.devices.invalidate();
@@ -87,9 +98,14 @@ export function useRoborockAuth() {
 	return {
 		authenticate: (email: string, password: string) =>
 			authMutation.mutateAsync({ email, password }),
+		send2FACode: (email: string) => send2FACodeMutation.mutateAsync({ email }),
+		verify2FACode: (code: string) =>
+			verify2FACodeMutation.mutateAsync({ code }),
 		connect: () => connectMutation.mutateAsync(),
 		disconnect: () => disconnectMutation.mutateAsync(),
 		isAuthenticating: authMutation.isPending,
+		isSending2FACode: send2FACodeMutation.isPending,
+		isVerifying2FACode: verify2FACodeMutation.isPending,
 		isConnecting: connectMutation.isPending,
 		isDisconnecting: disconnectMutation.isPending,
 		authError: authMutation.error,

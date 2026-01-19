@@ -14,6 +14,7 @@ import Fastify from "fastify";
 
 import { config } from "./config.js";
 import { db } from "./db/schema.js";
+import { createLoggerConfig } from "./logger.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { ringSnapshotRoutes } from "./routes/ring-snapshot.js";
 import { websocketRoutes } from "./routes/websocket.js";
@@ -24,7 +25,7 @@ import { registerTRPC } from "./trpc/fastify-adapter.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const fastify = Fastify({ logger: { level: config.LOG_LEVEL } });
+const fastify = Fastify({ logger: createLoggerConfig(config) });
 
 declare module "fastify" {
 	interface FastifyInstance {

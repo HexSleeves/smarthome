@@ -10,6 +10,12 @@ const envSchema = z.object({
 		.enum(["fatal", "error", "warn", "info", "debug", "trace"])
 		.default("info"),
 
+	// Logging
+	LOG_FILE: z.string().optional(), // Path to log file (e.g., /var/log/smarthome/app.log)
+	LOG_FILE_LEVEL: z
+		.enum(["fatal", "error", "warn", "info", "debug", "trace"])
+		.optional(), // Defaults to LOG_LEVEL if not set
+
 	// Required secrets (must be 32+ chars)
 	JWT_SECRET: z.string().min(32),
 	COOKIE_SECRET: z.string().min(32),

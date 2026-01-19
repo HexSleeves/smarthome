@@ -5,11 +5,21 @@ import { Layout } from "@/components/layout/AppShell";
 import { useAuthStore } from "@/stores/auth";
 
 // Lazy load pages for code splitting
-const LoginPage = lazy(() => import("@/pages/Login").then(m => ({ default: m.LoginPage })));
-const DashboardPage = lazy(() => import("@/pages/Dashboard").then(m => ({ default: m.DashboardPage })));
-const VacuumPage = lazy(() => import("@/pages/Vacuum").then(m => ({ default: m.VacuumPage })));
-const DoorbellPage = lazy(() => import("@/pages/Doorbell").then(m => ({ default: m.DoorbellPage })));
-const SettingsPage = lazy(() => import("@/pages/Settings").then(m => ({ default: m.SettingsPage })));
+const LoginPage = lazy(() =>
+	import("@/pages/Login").then((m) => ({ default: m.LoginPage })),
+);
+const DashboardPage = lazy(() =>
+	import("@/pages/Dashboard").then((m) => ({ default: m.DashboardPage })),
+);
+const VacuumPage = lazy(() =>
+	import("@/pages/Vacuum").then((m) => ({ default: m.VacuumPage })),
+);
+const DoorbellPage = lazy(() =>
+	import("@/pages/Doorbell").then((m) => ({ default: m.DoorbellPage })),
+);
+const SettingsPage = lazy(() =>
+	import("@/pages/Settings").then((m) => ({ default: m.SettingsPage })),
+);
 
 function PageLoader() {
 	return (
@@ -53,7 +63,9 @@ function App() {
 			<Routes>
 				<Route
 					path="/login"
-					element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
+					element={
+						isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
+					}
 				/>
 				<Route
 					element={
@@ -62,10 +74,38 @@ function App() {
 						</PrivateRoute>
 					}
 				>
-					<Route index element={<Suspense fallback={<PageLoader />}><DashboardPage /></Suspense>} />
-					<Route path="vacuum" element={<Suspense fallback={<PageLoader />}><VacuumPage /></Suspense>} />
-					<Route path="doorbell" element={<Suspense fallback={<PageLoader />}><DoorbellPage /></Suspense>} />
-					<Route path="settings" element={<Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>} />
+					<Route
+						index
+						element={
+							<Suspense fallback={<PageLoader />}>
+								<DashboardPage />
+							</Suspense>
+						}
+					/>
+					<Route
+						path="vacuum"
+						element={
+							<Suspense fallback={<PageLoader />}>
+								<VacuumPage />
+							</Suspense>
+						}
+					/>
+					<Route
+						path="doorbell"
+						element={
+							<Suspense fallback={<PageLoader />}>
+								<DoorbellPage />
+							</Suspense>
+						}
+					/>
+					<Route
+						path="settings"
+						element={
+							<Suspense fallback={<PageLoader />}>
+								<SettingsPage />
+							</Suspense>
+						}
+					/>
 				</Route>
 				<Route path="*" element={<Navigate to="/" replace />} />
 			</Routes>

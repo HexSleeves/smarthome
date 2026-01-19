@@ -1,4 +1,4 @@
-import { CameraEvent } from "ring-client-api";
+import type { CameraEvent } from "ring-client-api";
 import type {
 	Device,
 	DeviceEvent,

@@ -40,7 +40,10 @@ export function DoorbellSnapshot({ deviceId }: DoorbellSnapshotProps) {
 					</Button>
 				</div>
 				<div className="absolute top-4 left-4">
-					<Badge variant="secondary" className="gap-1.5 bg-black/60 text-white border-0">
+					<Badge
+						variant="secondary"
+						className="gap-1.5 bg-black/60 text-white border-0"
+					>
 						<Clock className="w-3.5 h-3.5" />
 						{timestamp.toLocaleTimeString()}
 					</Badge>

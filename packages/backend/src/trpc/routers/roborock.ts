@@ -27,13 +27,39 @@ export const roborockRouter = router({
 	),
 
 	auth: adminProcedure
-		.input(z.object({ email: z.string().email(), password: z.string() }))
+		.input(z.object({ email: z.email(), password: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			await roborockService.authenticate(
+			const result = await roborockService.authenticate(
 				ctx.user.id,
 				input.email,
 				input.password,
 			);
+			if (!result.success) {
+				if (result.twoFactorRequired) {
+					return { success: false, twoFactorRequired: true };
+				}
+				throw new Error(result.error || "Authentication failed");
+			}
+			return { success: true };
+		}),
+
+	send2FACode: adminProcedure
+		.input(z.object({ email: z.email() }))
+		.mutation(async ({ ctx, input }) => {
+			const result = await roborockService.send2FACode(ctx.user.id, input.email);
+			if (!result.success) {
+				throw new Error(result.error || "Failed to send code");
+			}
+			return { success: true };
+		}),
+
+	verify2FACode: adminProcedure
+		.input(z.object({ code: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const result = await roborockService.verify2FACode(ctx.user.id, input.code);
+			if (!result.success) {
+				throw new Error(result.error || "Verification failed");
+			}
 			return { success: true };
 		}),
 

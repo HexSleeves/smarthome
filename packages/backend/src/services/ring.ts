@@ -1,13 +1,17 @@
 import { EventEmitter } from "node:events";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import pino from "pino";
 import { type CameraEvent, RingApi, type RingCamera } from "ring-client-api";
+
+const log = pino({ name: "ring" });
 
 // Type for the streaming session returned by camera.streamVideo()
 interface StreamingSessionLike {
 	onCallEnded: { subscribe: (callback: () => void) => void };
 	stop: () => void;
 }
+
 import { config } from "../config.js";
 import {
 	createDevice,
@@ -488,10 +492,7 @@ class RingService extends EventEmitter {
 					"aac_low",
 				],
 				// Video - copy H264 directly (fast, but may have browser issues)
-				video: [
-					"-vcodec",
-					"copy",
-				],
+				video: ["-vcodec", "copy"],
 				output: [
 					"-f",
 					"hls",

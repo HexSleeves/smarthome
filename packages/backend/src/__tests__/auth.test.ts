@@ -296,9 +296,7 @@ describe("auth router", () => {
 			expect(result.result.data.json.accessToken).toBeDefined();
 
 			// Verify the new token is valid
-			const decoded = app.jwt.verify(
-				result.result.data.json.accessToken,
-			) as {
+			const decoded = app.jwt.verify(result.result.data.json.accessToken) as {
 				email: string;
 			};
 			expect(decoded.email).toBe(testUserEmail);
@@ -411,7 +409,9 @@ describe("auth router", () => {
 			expect(logoutResult.result.data.json.success).toBe(true);
 
 			// Try to use refresh token - should fail
-			const refreshResult = await trpcMutation("auth.refresh", { refreshToken });
+			const refreshResult = await trpcMutation("auth.refresh", {
+				refreshToken,
+			});
 
 			expect(isError(refreshResult)).toBe(true);
 			if (!isError(refreshResult)) return;

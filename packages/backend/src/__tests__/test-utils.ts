@@ -129,7 +129,9 @@ export function createTestQueries(db: DatabaseType) {
 /**
  * Create a test Fastify app with tRPC registered
  */
-export async function createTestApp(db: DatabaseType): Promise<FastifyInstance> {
+export async function createTestApp(
+	db: DatabaseType,
+): Promise<FastifyInstance> {
 	const app = Fastify({ logger: false });
 
 	await app.register(cors, { origin: true, credentials: true });
@@ -172,7 +174,10 @@ export async function createTestApp(db: DatabaseType): Promise<FastifyInstance> 
 				}
 
 				const signJwt = (payload: object, options?: { expiresIn?: string }) =>
-					(app.jwt.sign as (p: unknown, o?: unknown) => string)(payload, options);
+					(app.jwt.sign as (p: unknown, o?: unknown) => string)(
+						payload,
+						options,
+					);
 
 				return { req, res, user, signJwt };
 			},

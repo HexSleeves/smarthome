@@ -1,5 +1,12 @@
-import { Loader2, Play, Square, Video, VideoOff, AlertCircle } from "lucide-react";
-import { useRef, useEffect } from "react";
+import {
+	AlertCircle,
+	Loader2,
+	Play,
+	Square,
+	Video,
+	VideoOff,
+} from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useRingStream } from "@/hooks";
 
 type DoorbellLiveStreamProps = {
@@ -21,12 +28,12 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 	}, []);
 
 	const handleStartStream = () => {
-		console.log('handleStartStream called, videoRef:', videoRef.current);
+		console.log("handleStartStream called, videoRef:", videoRef.current);
 		if (videoRef.current) {
-			console.log('Calling startStream...');
+			console.log("Calling startStream...");
 			startStream(videoRef.current);
 		} else {
-			console.log('No videoRef!');
+			console.log("No videoRef!");
 		}
 	};
 

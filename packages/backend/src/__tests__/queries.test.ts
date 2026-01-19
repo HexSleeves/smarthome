@@ -170,10 +170,7 @@ describe("database queries", () => {
 		});
 
 		it("returns undefined for non-existent provider", () => {
-			const cred = queries.credentialQueries.findByProvider.get(
-				userId,
-				"ring",
-			);
+			const cred = queries.credentialQueries.findByProvider.get(userId, "ring");
 			expect(cred).toBeUndefined();
 		});
 	});

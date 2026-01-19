@@ -1,8 +1,8 @@
-import { Droplets } from "lucide-react";
-import { useRoborockCommands } from "@/hooks";
 import type { RoborockWaterLevel } from "@smarthome/shared";
+import { Droplets } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useRoborockCommands } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 const waterLevels: { value: RoborockWaterLevel; label: string }[] = [

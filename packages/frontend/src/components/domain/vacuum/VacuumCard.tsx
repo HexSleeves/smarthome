@@ -1,5 +1,5 @@
-import { Battery } from "lucide-react";
 import type { Device, RoborockDeviceState } from "@smarthome/shared";
+import { Battery } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 

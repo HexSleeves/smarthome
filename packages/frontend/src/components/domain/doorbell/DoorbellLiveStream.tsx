@@ -6,7 +6,7 @@ import {
 	Video,
 	VideoOff,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRingStream } from "@/hooks";
@@ -29,7 +29,7 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleStartStream = () => {
+	const handleStartStream = useCallback(() => {
 		console.log("handleStartStream called, videoRef:", videoRef.current);
 		if (videoRef.current) {
 			console.log("Calling startStream...");
@@ -37,7 +37,7 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 		} else {
 			console.log("No videoRef!");
 		}
-	};
+	}, [startStream]);
 
 	return (
 		<div className="bg-muted rounded-lg overflow-hidden">

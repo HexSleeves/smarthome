@@ -3,8 +3,8 @@ import type {
 	Device,
 	DeviceEvent,
 	RingDeviceState,
-	RoborockDeviceState,
 	RoborockCleanHistory,
+	RoborockDeviceState,
 } from "./device";
 
 // API response types

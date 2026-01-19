@@ -1,13 +1,13 @@
-import { AlertTriangle, Battery, Wind } from "lucide-react";
 import type { RoborockDeviceState } from "@smarthome/shared";
-import { VacuumStatusBadge } from "./VacuumStatusBadge";
-import { VacuumStats } from "./VacuumStats";
+import { AlertTriangle, Battery, Wind } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { VacuumControls } from "./VacuumControls";
 import { VacuumFanSpeed } from "./VacuumFanSpeed";
+import { VacuumStats } from "./VacuumStats";
+import { VacuumStatusBadge } from "./VacuumStatusBadge";
 import { VacuumWaterLevel } from "./VacuumWaterLevel";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
 
 type VacuumDeviceProps = {
 	device: RoborockDeviceState;

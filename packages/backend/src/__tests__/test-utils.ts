@@ -1,11 +1,11 @@
-import Database, { type Database as DatabaseType } from "better-sqlite3";
-import Fastify, { type FastifyInstance } from "fastify";
-import jwt from "@fastify/jwt";
 import cors from "@fastify/cors";
 import formbody from "@fastify/formbody";
-import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
+import jwt from "@fastify/jwt";
 import type { User } from "@smarthome/shared";
+import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
+import Database, { type Database as DatabaseType } from "better-sqlite3";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import { appRouter } from "../trpc/routers/index.js";
 import type { TRPCContext } from "../trpc/trpc.js";
 

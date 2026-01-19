@@ -1,5 +1,5 @@
-import { Badge } from "./badge";
 import { cn } from "@/lib/utils";
+import { Badge } from "./badge";
 
 type StatusType = "success" | "warning" | "error" | "neutral" | "info";
 

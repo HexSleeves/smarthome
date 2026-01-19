@@ -1,7 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { wsClient } from "@/lib/websocket";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { wsClient } from "@/lib/websocket";
 
 type Notification = {
 	type: string;
@@ -76,7 +76,10 @@ export function DoorbellNotifications({
 				<AlertDescription>
 					<div className="mt-2 space-y-1">
 						{notifications.map((notif) => (
-							<div key={`${notif.type}-${notif.time.getTime()}`} className="text-sm">
+							<div
+								key={`${notif.type}-${notif.time.getTime()}`}
+								className="text-sm"
+							>
 								{notif.type === "ding"
 									? "🔔 Doorbell pressed"
 									: "🚶 Motion detected"}

@@ -1,7 +1,7 @@
+import type { Database as DatabaseType } from "better-sqlite3";
 import { v4 as uuid } from "uuid";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestQueries } from "./test-utils.js";
-import type { Database as DatabaseType } from "better-sqlite3";
 
 describe("database queries", () => {
 	let db: DatabaseType;

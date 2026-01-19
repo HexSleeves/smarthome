@@ -1,9 +1,9 @@
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { applyTheme, useThemeStore } from "@/stores/theme";
 import { Button } from "./button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
-import { useThemeStore, applyTheme } from "@/stores/theme";
-import { cn } from "@/lib/utils";
 
 export function ThemeToggle() {
 	const { theme, setTheme } = useThemeStore();

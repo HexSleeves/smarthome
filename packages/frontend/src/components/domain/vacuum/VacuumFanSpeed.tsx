@@ -1,8 +1,8 @@
-import { Wind } from "lucide-react";
-import { useRoborockCommands } from "@/hooks";
 import type { RoborockFanSpeed } from "@smarthome/shared";
+import { Wind } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useRoborockCommands } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 const fanSpeeds: { value: RoborockFanSpeed; label: string; icon: string }[] = [

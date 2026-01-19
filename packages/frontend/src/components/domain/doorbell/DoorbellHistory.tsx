@@ -1,7 +1,7 @@
 import { Clock } from "lucide-react";
-import { useRingHistory } from "@/hooks";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { useRingHistory } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 type DoorbellHistoryProps = {

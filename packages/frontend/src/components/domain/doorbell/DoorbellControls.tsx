@@ -1,8 +1,8 @@
 import type { RingDeviceState } from "@smarthome/shared";
 import { AlertTriangle, Sun } from "lucide-react";
-import { useRingControls } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useRingControls } from "@/hooks";
 
 type DoorbellControlsProps = {
 	device: RingDeviceState;

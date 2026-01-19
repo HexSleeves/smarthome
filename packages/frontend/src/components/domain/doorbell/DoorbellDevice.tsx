@@ -1,15 +1,15 @@
 import type { RingDeviceState } from "@smarthome/shared";
 import { Battery, Bell, Camera } from "lucide-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DoorbellControls } from "./DoorbellControls";
 import { DoorbellHistory } from "./DoorbellHistory";
 import { DoorbellLiveStream } from "./DoorbellLiveStream";
 import { DoorbellNotifications } from "./DoorbellNotifications";
 import { DoorbellSnapshot } from "./DoorbellSnapshot";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 
 type DoorbellDeviceProps = {
 	device: RingDeviceState;

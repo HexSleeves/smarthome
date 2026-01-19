@@ -1,7 +1,7 @@
 import { Home, Pause, Play, Square, Volume2 } from "lucide-react";
-import { useRoborockCommands } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useRoborockCommands } from "@/hooks";
 
 type VacuumControlsProps = {
 	deviceId: string;

@@ -1,5 +1,6 @@
 import Hls from "hls.js";
 import { useCallback, useRef, useState } from "react";
+import { getAccessToken } from "@/lib/api";
 import { trpc } from "@/lib/trpc/client";
 
 export type StreamState = "idle" | "connecting" | "streaming" | "error";
@@ -57,10 +58,11 @@ export function useRingStream(deviceId: string) {
 				sessionIdRef.current = result.sessionId ?? null;
 
 				// Get auth token for stream requests
-				const token = localStorage.getItem("accessToken") || "";
+				const token = getAccessToken() || "";
 				const streamUrl = `${result.streamUrl}?token=${encodeURIComponent(token)}`;
 
 				console.log("HLS stream URL:", streamUrl);
+				console.log("Token present:", !!token, "Token length:", token.length);
 
 				// Wait for the stream to initialize and first segments to be ready
 				// HLS needs time for ffmpeg to start and create first segment

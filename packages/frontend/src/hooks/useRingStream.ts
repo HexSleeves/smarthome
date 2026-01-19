@@ -1,4 +1,4 @@
-import Hls from "hls.js";
+import type Hls from "hls.js";
 import { useCallback, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/api";
 import { trpc } from "@/lib/trpc/client";
@@ -67,6 +67,9 @@ export function useRingStream(deviceId: string) {
 				// Wait for the stream to initialize and first segments to be ready
 				// HLS needs time for ffmpeg to start and create first segment
 				await new Promise((resolve) => setTimeout(resolve, 5000));
+
+				// Dynamically import HLS.js only when needed
+				const { default: Hls } = await import("hls.js");
 
 				if (Hls.isSupported()) {
 					const hls = new Hls({

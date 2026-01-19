@@ -1,79 +1,198 @@
-## Ring Doorbell Live Streaming - HLS Implementation Complete
+# Next Agent Instructions - Roborock Integration Fix
 
-### Current Status
+## Current State
 
-HLS live streaming is now implemented and working. The backend uses `camera.streamVideo()` from ring-client-api with ffmpeg to transcode the stream to browser-compatible HLS format.
+The Roborock integration is **partially working** but cannot fetch device lists due to missing HAWK authentication.
 
-### What's Done
+### What Works
+- User can authenticate with Roborock via 2FA (v4 API)
+- `getHomeDetail` API call succeeds and returns `rrHomeId`
+- Token is stored in database
+- Authorization header format fixed (was using `Bearer` prefix, now uses raw token)
 
-1. **Backend HLS Streaming** (`packages/backend/src/services/ring.ts`)
-   - `startHlsStream()` - Starts ffmpeg transcoding to HLS
-   - `stopHlsStream()` - Stops the stream and cleans up
-   - `getStreamOutputDir()` - Gets the output directory for serving HLS files
-   - Session management with auto-cleanup on idle/expiry
-   - Stream timeout after 60s idle or 10min max duration
+### What Doesn't Work
+- Device list is always empty (0 devices found)
+- Cannot send commands to vacuum
+- Cannot get device status
 
-2. **HLS File Serving** (`packages/backend/src/routes/ring-snapshot.ts`)
-   - `/api/ring/stream/:sessionId/:filename` - Serves HLS files (m3u8 and .ts)
-   - Supports both query param token and Bearer auth header
-   - Updates stream activity on each file request
+## Root Cause
 
-3. **Backend tRPC endpoints** (`packages/backend/src/trpc/routers/ring.ts`)
-   - `ring.startStream` - Starts HLS stream, returns stream URL
-   - `ring.stopStream` - Ends streaming session
-   - `ring.streamStatus` - Checks if stream is active
+The Roborock API has a two-tier architecture:
 
-4. **Frontend** (`packages/frontend/src/hooks/useRingStream.ts`)
-   - HLS.js integration for browser playback
-   - Auth token passed via Authorization header
-   - Retry logic for manifest loading
-   - State management (idle/connecting/streaming/error)
+1. **Basic API** (`https://usiot.roborock.com/api/v1/*`)
+   - Used for: login, getHomeDetail
+   - Auth: Simple token in `Authorization` header
+   - ✅ This works
 
-5. **UI** (`packages/frontend/src/components/domain/doorbell/`)
-   - `DoorbellLiveStream.tsx` - Live streaming component with play/stop
-   - Shows LIVE indicator when streaming
+2. **IoT API** (`https://{rriot.r.a}/user/homes/{homeId}`)
+   - Used for: device list, commands, status
+   - Auth: **HAWK authentication** using `rriot` credentials
+   - ❌ Not implemented
 
-### FFmpeg Configuration
-
-The stream uses these ffmpeg options for browser compatibility:
-
-- Audio: AAC-LC codec, 44100Hz, stereo, 128kbps
-- Video: Copy H264 (no re-encoding for speed)
-- HLS: 2-second segments, 6 segments in playlist, auto-delete old segments
-
-### Stream Files
-
-HLS files are written to `/tmp/ring-streams/<session-id>/`:
-
-- `stream.m3u8` - HLS playlist
-- `stream*.ts` - Video segments (~2 seconds each)
-
-### Testing Notes
-
-**Important**: The headless browser used for automated testing doesn't have MediaSource/codec support. HLS streaming must be tested in a real browser:
-
-```bash
-# Start the app
-sudo systemctl restart smarthome
-
-# View logs
-sudo journalctl -u smarthome -f
-
-# Access in your browser (not headless)
-https://noon-disk.exe.xyz:3000/doorbell
+The current implementation uses **v4 login API** which returns:
+```json
+{
+  "token": "...",
+  "userid": "...",
+  "rruid": "..."
+}
 ```
 
-### Known Issues
+But the **v1 login API** returns additional `rriot` data needed for HAWK auth:
+```json
+{
+  "token": "...",
+  "rriot": {
+    "u": "user_id",
+    "s": "secret",
+    "h": "hmac_key", 
+    "k": "key",
+    "r": {
+      "a": "api.roborock.com",
+      "m": "mqtt.roborock.com",
+      "l": "..."
+    }
+  }
+}
+```
 
-1. **Stream Startup Time**: Takes 5-6 seconds for first HLS segment to be ready
-2. **High Profile H264**: Ring cameras use H264 High profile which some browsers may not support. If issues persist, may need to transcode video to baseline profile (slower)
-3. **Token Expiry**: JWT tokens have 15-minute expiry; stream may fail if token expires during long stream
+## Required Changes
 
-### Files Changed
+### 1. Update Credentials Interface
+File: `packages/backend/src/services/roborock.ts`
 
-- `packages/backend/src/services/ring.ts` - HLS streaming service methods
-- `packages/backend/src/routes/ring-snapshot.ts` - HLS file serving endpoint
-- `packages/backend/src/trpc/routers/ring.ts` - Stream tRPC endpoints
-- `packages/frontend/src/hooks/useRingStream.ts` - HLS.js hook
-- `packages/frontend/src/components/domain/doorbell/DoorbellLiveStream.tsx` - UI component
-- `packages/frontend/package.json` - Added hls.js dependency
+```typescript
+interface RoborockCredentials {
+  token: string;
+  userId: string;
+  homeId: string;
+  rruid?: string;
+  baseURL: string;
+  // ADD these fields:
+  rriot?: {
+    u: string;
+    s: string;
+    h: string;
+    k: string;
+    r: {
+      a: string;  // IoT API endpoint
+      m?: string; // MQTT endpoint
+      l?: string;
+    };
+  };
+}
+```
+
+### 2. Switch to v1 Login API
+
+Replace current v4 endpoints:
+- `api/v4/email/code/send` → `api/v1/sendEmailCode`
+- `api/v4/auth/email/login/code` → `api/v1/loginWithCode`
+
+v1 sendEmailCode:
+```
+POST /api/v1/sendEmailCode
+Params: username={email}&type=auth
+Headers: header_clientid={md5(email+deviceId).base64}
+```
+
+v1 loginWithCode:
+```
+POST /api/v1/loginWithCode
+Params: username={email}&verifycode={code}&verifycodetype=AUTH_EMAIL_CODE
+Headers: header_clientid={md5(email+deviceId).base64}
+```
+
+### 3. Implement HAWK Authentication
+
+For IoT API calls, generate HAWK auth header:
+
+```typescript
+function getHawkAuthentication(rriot: RRiot, url: string): string {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = crypto.randomBytes(6).toString('base64url');
+  
+  const prestr = [
+    rriot.u,
+    rriot.s,
+    nonce,
+    timestamp.toString(),
+    crypto.createHash('md5').update(url).digest('hex'),
+    '',
+    ''
+  ].join(':');
+  
+  const mac = crypto
+    .createHmac('sha256', rriot.h)
+    .update(prestr)
+    .digest('base64');
+  
+  return `Hawk id="${rriot.u}", s="${rriot.s}", ts="${timestamp}", nonce="${nonce}", mac="${mac}"`;
+}
+```
+
+### 4. Update Device Discovery
+
+```typescript
+async discoverDevices(userId: string): Promise<void> {
+  const creds = this.credentials.get(userId);
+  if (!creds?.rriot) {
+    log.warn('Missing rriot credentials - cannot fetch devices');
+    return;
+  }
+
+  // Get home ID from basic API
+  const homeId = await this.getHomeId(creds);
+  
+  // Fetch devices from IoT API with HAWK auth
+  const iotApiUrl = `https://${creds.rriot.r.a}`;
+  const devicesPath = `/user/homes/${homeId}`;
+  
+  const response = await fetch(`${iotApiUrl}${devicesPath}`, {
+    headers: {
+      Authorization: this.getHawkAuthentication(creds.rriot, devicesPath)
+    }
+  });
+  
+  const data = await response.json();
+  // data.result.devices contains the device list
+}
+```
+
+## Reference Implementation
+
+See the Python implementation for reference:
+- https://github.com/Lash-L/python-roborock/blob/main/roborock/web_api.py
+- Key functions: `code_login`, `get_home_data`, `_get_hawk_authentication`
+
+## Files to Modify
+
+1. `packages/backend/src/services/roborock.ts` - Main service file
+   - Update `RoborockCredentials` interface
+   - Change login to use v1 API
+   - Store `rriot` from login response
+   - Implement HAWK auth function
+   - Update `discoverDevices` to use IoT API
+
+## Testing
+
+After changes:
+1. Clear existing Roborock credentials: 
+   ```sql
+   DELETE FROM device_credentials WHERE provider='roborock';
+   ```
+2. Restart service: `sudo systemctl restart smarthome`
+3. Re-authenticate via Settings page
+4. Check logs: `journalctl -u smarthome -f | grep roborock`
+5. Verify devices appear in UI
+
+## Current Logs Show
+
+```
+Roborock getHomeDetail response: {"code":200,"data":{"rrHomeId":5207156,...}}
+Home found. Device list requires HAWK authentication
+Roborock devices endpoint response: {"code":1002,"msg":"parameter error"}
+Device discovery complete: deviceCount=0
+```
+
+The user has home ID 5207156 but no devices are returned because we can't call the IoT API without HAWK auth.

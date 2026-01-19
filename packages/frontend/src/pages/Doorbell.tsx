@@ -1,6 +1,6 @@
 import { Bell } from "lucide-react";
 import { DoorbellDevice } from "@/components/domain/doorbell";
-import { EmptyState, PageSpinner } from "@/components/ui";
+import { DoorbellDeviceSkeleton, EmptyState } from "@/components/ui";
 import { useRingDevices, useRingStatus } from "@/hooks";
 import { useAuthStore } from "@/stores/auth";
 
@@ -8,8 +8,17 @@ export function DoorbellPage() {
 	const { user } = useAuthStore();
 	const isAdmin = user?.role === "admin";
 
-	const { connected, hasCredentials } = useRingStatus();
-	const { devices, isLoading } = useRingDevices();
+	const { connected, hasCredentials, isLoading: statusLoading } = useRingStatus();
+	const { devices, isLoading: devicesLoading } = useRingDevices();
+
+	// Show skeleton while loading
+	if (statusLoading || devicesLoading) {
+		return (
+			<div className="space-y-6">
+				<DoorbellDeviceSkeleton />
+			</div>
+		);
+	}
 
 	if (!connected && !hasCredentials) {
 		return (
@@ -21,10 +30,6 @@ export function DoorbellPage() {
 				actionLink="/settings"
 			/>
 		);
-	}
-
-	if (isLoading) {
-		return <PageSpinner />;
 	}
 
 	if (devices.length === 0) {

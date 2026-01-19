@@ -1,6 +1,6 @@
 import { Wind } from "lucide-react";
 import { VacuumDevice } from "@/components/domain/vacuum";
-import { EmptyState, PageSpinner } from "@/components/ui";
+import { EmptyState, VacuumDeviceSkeleton } from "@/components/ui";
 import { useRoborockDevices, useRoborockStatus } from "@/hooks";
 import { useAuthStore } from "@/stores/auth";
 
@@ -8,8 +8,17 @@ export function VacuumPage() {
 	const { user } = useAuthStore();
 	const isAdmin = user?.role === "admin";
 
-	const { connected, hasCredentials } = useRoborockStatus();
-	const { devices, isLoading } = useRoborockDevices();
+	const { connected, hasCredentials, isLoading: statusLoading } = useRoborockStatus();
+	const { devices, isLoading: devicesLoading } = useRoborockDevices();
+
+	// Show skeleton while loading
+	if (statusLoading || devicesLoading) {
+		return (
+			<div className="space-y-6">
+				<VacuumDeviceSkeleton />
+			</div>
+		);
+	}
 
 	if (!connected && !hasCredentials) {
 		return (
@@ -21,10 +30,6 @@ export function VacuumPage() {
 				actionLink="/settings"
 			/>
 		);
-	}
-
-	if (isLoading) {
-		return <PageSpinner />;
 	}
 
 	if (devices.length === 0) {

@@ -17,6 +17,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useNotifications } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 
@@ -58,6 +59,9 @@ export function Layout() {
 	const location = useLocation();
 	const { user, logout } = useAuthStore();
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+
+	// Initialize notification listeners
+	useNotifications();
 
 	return (
 		<TooltipProvider>

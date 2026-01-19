@@ -1,5 +1,5 @@
 import { Activity, Bell, Clock, Wifi } from "lucide-react";
-import { StatCard } from "@/components/ui";
+import { StatCard, StatCardSkeleton } from "@/components/ui";
 import {
 	useDevices,
 	useRecentEvents,
@@ -8,10 +8,23 @@ import {
 } from "@/hooks";
 
 export function DashboardStats() {
-	const { devices } = useDevices();
-	const { events } = useRecentEvents(10);
-	const { connected: roborockConnected } = useRoborockStatus();
-	const { connected: ringConnected } = useRingStatus();
+	const { devices, isLoading: devicesLoading } = useDevices();
+	const { events, isLoading: eventsLoading } = useRecentEvents(10);
+	const { connected: roborockConnected, isLoading: roborockLoading } = useRoborockStatus();
+	const { connected: ringConnected, isLoading: ringLoading } = useRingStatus();
+
+	const isLoading = devicesLoading || eventsLoading || roborockLoading || ringLoading;
+
+	if (isLoading) {
+		return (
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+				<StatCardSkeleton />
+				<StatCardSkeleton />
+				<StatCardSkeleton />
+				<StatCardSkeleton />
+			</div>
+		);
+	}
 
 	return (
 		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

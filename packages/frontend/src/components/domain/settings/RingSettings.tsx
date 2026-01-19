@@ -1,6 +1,6 @@
-import { Bell, CheckCircle, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle, Loader2, Smartphone, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,14 +32,15 @@ export function RingSettings() {
 		isDisconnecting,
 	} = useRingAuth();
 
+	// Auto-show 2FA form when there's a pending session
 	useEffect(() => {
-		if (pending2FA) {
+		if (pending2FA && !connected) {
 			setRequiresTwoFactor(true);
 			setTwoFactorPrompt(
-				"A 2FA session is pending. Please enter the code sent to your phone.",
+				"A 2FA verification is pending from a previous login attempt. Please enter the code sent to your phone, or cancel to start over.",
 			);
 		}
-	}, [pending2FA]);
+	}, [pending2FA, connected]);
 
 	const handleAuth = async (email: string, password: string) => {
 		setError("");
@@ -83,6 +84,14 @@ export function RingSettings() {
 		}
 	};
 
+	// Determine the connection badge state
+	const getBadgeState = () => {
+		if (statusLoading) return "loading";
+		if (connected) return "connected";
+		if (pending2FA) return "pending-2fa";
+		return "disconnected";
+	};
+
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -90,15 +99,29 @@ export function RingSettings() {
 					<Bell className="w-5 h-5" />
 					Ring
 				</CardTitle>
-				<ConnectionBadge connected={connected} isLoading={statusLoading} />
+				<ConnectionBadge state={getBadgeState()} />
 			</CardHeader>
 			<CardContent>
+				{/* Show pending 2FA alert at the top when applicable */}
+				{pending2FA && !connected && !requiresTwoFactor && (
+					<Pending2FAAlert
+						onResume={() => {
+							setRequiresTwoFactor(true);
+							setTwoFactorPrompt(
+								"Enter the 2FA code sent to your phone to complete authentication.",
+							);
+						}}
+						onCancel={handleCancel2FA}
+						isCancelling={isCancelling2FA}
+					/>
+				)}
+
 				{connected ? (
 					<ConnectedState
 						onDisconnect={disconnect}
 						isDisconnecting={isDisconnecting}
 					/>
-				) : hasCredentials ? (
+				) : hasCredentials && !requiresTwoFactor ? (
 					<StoredCredentialsState
 						onConnect={handleConnect}
 						isConnecting={isConnecting}
@@ -112,6 +135,7 @@ export function RingSettings() {
 						isSubmitting={isSubmitting2FA}
 						isCancelling={isCancelling2FA}
 						error={error}
+						isPending={pending2FA}
 					/>
 				) : (
 					<RingAuthForm
@@ -126,28 +150,65 @@ export function RingSettings() {
 }
 
 function ConnectionBadge({
-	connected,
-	isLoading,
+	state,
 }: {
-	connected: boolean;
-	isLoading: boolean;
+	state: "loading" | "connected" | "pending-2fa" | "disconnected";
 }) {
-	if (isLoading) {
-		return <Loader2 className="w-5 h-5 animate-spin" />;
+	switch (state) {
+		case "loading":
+			return <Loader2 className="w-5 h-5 animate-spin" />;
+		case "connected":
+			return (
+				<Badge variant="success" className="gap-1">
+					<CheckCircle className="w-3 h-3" />
+					Connected
+				</Badge>
+			);
+		case "pending-2fa":
+			return (
+				<Badge variant="warning" className="gap-1">
+					<Smartphone className="w-3 h-3" />
+					2FA Pending
+				</Badge>
+			);
+		default:
+			return (
+				<Badge variant="secondary" className="gap-1">
+					<XCircle className="w-3 h-3" />
+					Disconnected
+				</Badge>
+			);
 	}
-	if (connected) {
-		return (
-			<Badge variant="success" className="gap-1">
-				<CheckCircle className="w-3 h-3" />
-				Connected
-			</Badge>
-		);
-	}
+}
+
+function Pending2FAAlert({
+	onResume,
+	onCancel,
+	isCancelling,
+}: {
+	onResume: () => void;
+	onCancel: () => void;
+	isCancelling: boolean;
+}) {
 	return (
-		<Badge variant="secondary" className="gap-1">
-			<XCircle className="w-3 h-3" />
-			Disconnected
-		</Badge>
+		<Alert variant="warning" className="mb-4">
+			<AlertTriangle className="h-4 w-4" />
+			<AlertTitle>2FA Verification Pending</AlertTitle>
+			<AlertDescription className="mt-2">
+				<p className="mb-3">
+					A previous login attempt requires 2FA verification. Check your phone for the code.
+				</p>
+				<div className="flex gap-2">
+					<Button size="sm" onClick={onResume}>
+						<Smartphone className="w-4 h-4 mr-1" />
+						Enter Code
+					</Button>
+					<Button size="sm" variant="outline" onClick={onCancel} disabled={isCancelling}>
+						{isCancelling ? "Cancelling..." : "Start Over"}
+					</Button>
+				</div>
+			</AlertDescription>
+		</Alert>
 	);
 }
 

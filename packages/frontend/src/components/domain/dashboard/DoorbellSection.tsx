@@ -1,14 +1,19 @@
 import { Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 import { DoorbellCard } from "@/components/domain/doorbell";
-import { EmptyState } from "@/components/ui";
+import { DeviceCardSkeleton, DeviceSectionSkeleton, EmptyState } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDevicesByType, useRingStatus } from "@/hooks";
 
 export function DoorbellSection() {
-	const { connected, hasCredentials } = useRingStatus();
-	const { devices: doorbells } = useDevicesByType("ring");
+	const { connected, hasCredentials, isLoading: statusLoading } = useRingStatus();
+	const { devices: doorbells, isLoading: devicesLoading } = useDevicesByType("ring");
+
+	// Show skeleton while loading initial status
+	if (statusLoading) {
+		return <DeviceSectionSkeleton />;
+	}
 
 	const renderContent = () => {
 		if (!connected && !hasCredentials) {
@@ -19,6 +24,15 @@ export function DoorbellSection() {
 					actionLabel="Connect your Ring"
 					actionLink="/settings"
 				/>
+			);
+		}
+
+		// Show skeleton while loading devices
+		if (devicesLoading) {
+			return (
+				<div className="space-y-3">
+					<DeviceCardSkeleton />
+				</div>
 			);
 		}
 

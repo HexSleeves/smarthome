@@ -1,14 +1,19 @@
 import { Wifi } from "lucide-react";
 import { Link } from "react-router-dom";
 import { VacuumCard } from "@/components/domain/vacuum";
-import { EmptyState } from "@/components/ui";
+import { DeviceCardSkeleton, DeviceSectionSkeleton, EmptyState } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDevicesByType, useRoborockStatus } from "@/hooks";
 
 export function VacuumSection() {
-	const { connected, hasCredentials } = useRoborockStatus();
-	const { devices: vacuums } = useDevicesByType("roborock");
+	const { connected, hasCredentials, isLoading: statusLoading } = useRoborockStatus();
+	const { devices: vacuums, isLoading: devicesLoading } = useDevicesByType("roborock");
+
+	// Show skeleton while loading initial status
+	if (statusLoading) {
+		return <DeviceSectionSkeleton />;
+	}
 
 	const renderContent = () => {
 		if (!connected && !hasCredentials) {
@@ -19,6 +24,15 @@ export function VacuumSection() {
 					actionLabel="Connect your Roborock"
 					actionLink="/settings"
 				/>
+			);
+		}
+
+		// Show skeleton while loading devices
+		if (devicesLoading) {
+			return (
+				<div className="space-y-3">
+					<DeviceCardSkeleton />
+				</div>
 			);
 		}
 

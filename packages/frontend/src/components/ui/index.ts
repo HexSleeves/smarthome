@@ -15,6 +15,7 @@ export * from "./StatusBadge";
 export * from "./separator";
 export * from "./sheet";
 export * from "./skeleton";
+export * from "./skeletons";
 export * from "./tabs";
 export * from "./theme-toggle";
 export * from "./tooltip";

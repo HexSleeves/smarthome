@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form";
+import { Clock, Smartphone } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ type Ring2FAFormProps = {
 	isSubmitting: boolean;
 	isCancelling: boolean;
 	error: string | null;
+	isPending?: boolean;
 };
 
 export function Ring2FAForm({
@@ -20,6 +22,7 @@ export function Ring2FAForm({
 	isSubmitting,
 	isCancelling,
 	error,
+	isPending,
 }: Ring2FAFormProps) {
 	const form = useForm({
 		defaultValues: {
@@ -40,15 +43,24 @@ export function Ring2FAForm({
 			}}
 			className="space-y-4"
 		>
-			<Alert variant="info">
-				<AlertTitle>2FA Code Required</AlertTitle>
+			<Alert variant={isPending ? "warning" : "info"}>
+				{isPending ? (
+					<Clock className="h-4 w-4" />
+				) : (
+					<Smartphone className="h-4 w-4" />
+				)}
+				<AlertTitle>
+					{isPending ? "Pending 2FA Verification" : "2FA Code Required"}
+				</AlertTitle>
 				<AlertDescription>{prompt}</AlertDescription>
 			</Alert>
+
 			{error && (
 				<Alert variant="destructive">
 					<AlertDescription>{error}</AlertDescription>
 				</Alert>
 			)}
+
 			<form.Field
 				name="code"
 				validators={{
@@ -87,6 +99,7 @@ export function Ring2FAForm({
 					</div>
 				)}
 			</form.Field>
+
 			<form.Subscribe
 				selector={(state) => [state.canSubmit, state.values.code]}
 			>
@@ -103,15 +116,22 @@ export function Ring2FAForm({
 						</Button>
 						<Button
 							type="button"
-							variant="secondary"
+							variant="outline"
 							onClick={onCancel}
 							disabled={isCancelling}
 						>
-							Cancel
+							{isCancelling ? "Cancelling..." : isPending ? "Start Over" : "Cancel"}
 						</Button>
 					</div>
 				)}
 			</form.Subscribe>
+
+			{isPending && (
+				<p className="text-xs text-muted-foreground text-center">
+					Code was sent to your phone during a previous login attempt.
+					If expired, click "Start Over" to request a new code.
+				</p>
+			)}
 		</form>
 	);
 }

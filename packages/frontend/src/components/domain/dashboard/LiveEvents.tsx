@@ -1,4 +1,6 @@
 import { useRealtimeEvents } from "@/hooks";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export function LiveEvents() {
 	const { events } = useRealtimeEvents(5);
@@ -8,24 +10,35 @@ export function LiveEvents() {
 	}
 
 	return (
-		<div className="card p-6">
-			<h2 className="text-lg font-semibold mb-4">Live Events</h2>
-			<div className="space-y-2">
+		<Card>
+			<CardHeader>
+				<CardTitle>Live Events</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-2">
 				{events.map((event) => {
 					return (
 						<div
 							key={event.deviceId}
-							className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50"
+							className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
 						>
-							<div
-								className={`w-2 h-2 rounded-full ${
+							<Badge 
+								variant={
+									event.type === "doorbell" 
+										? "warning" 
+										: event.type === "motion" 
+											? "info" 
+											: "success"
+								}
+								className="gap-1"
+							>
+								<span className={`w-2 h-2 rounded-full ${
 									event.type === "doorbell"
 										? "bg-yellow-500"
 										: event.type === "motion"
 											? "bg-blue-500"
 											: "bg-green-500"
-								}`}
-							/>
+								}`} />
+							</Badge>
 							<span className="flex-1 text-sm">
 								{event.type === "doorbell"
 									? "🔔 Doorbell pressed"
@@ -33,13 +46,13 @@ export function LiveEvents() {
 										? "🚶 Motion detected"
 										: `🧹 Vacuum: ${event.state?.status || "status update"}`}
 							</span>
-							<span className="text-xs text-gray-500">
+							<span className="text-xs text-muted-foreground">
 								{event.timestamp.toLocaleTimeString()}
 							</span>
 						</div>
 					);
 				})}
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 }

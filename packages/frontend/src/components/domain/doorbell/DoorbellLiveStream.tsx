@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useRingStream } from "@/hooks";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 type DoorbellLiveStreamProps = {
 	deviceId: string;
@@ -38,8 +40,8 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 	};
 
 	return (
-		<div className="p-6 bg-gray-900">
-			<div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+		<div className="bg-muted rounded-lg overflow-hidden">
+			<div className="relative aspect-video bg-black">
 				{/* Video element - always present but may be hidden */}
 				<video
 					ref={videoRef}
@@ -54,39 +56,31 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 				{/* Idle state - show play button */}
 				{state === "idle" && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-						<VideoOff className="w-16 h-16 text-gray-500" />
-						<p className="text-gray-400">Click to start live stream</p>
-						<button
-							onClick={handleStartStream}
-							className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-							type="button"
-						>
+						<VideoOff className="w-16 h-16 text-muted-foreground" />
+						<p className="text-muted-foreground">Click to start live stream</p>
+						<Button onClick={handleStartStream}>
 							<Play className="w-5 h-5" />
 							Start Live Stream
-						</button>
+						</Button>
 					</div>
 				)}
 
 				{/* Connecting state */}
 				{isConnecting && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-						<Loader2 className="w-12 h-12 text-primary-500 animate-spin" />
-						<p className="text-gray-400">Connecting to camera...</p>
+						<Loader2 className="w-12 h-12 text-primary animate-spin" />
+						<p className="text-muted-foreground">Connecting to camera...</p>
 					</div>
 				)}
 
 				{/* Error state */}
 				{state === "error" && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-						<AlertCircle className="w-12 h-12 text-red-500" />
-						<p className="text-red-400">{error || "Stream error"}</p>
-						<button
-							onClick={handleStartStream}
-							className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-							type="button"
-						>
+						<AlertCircle className="w-12 h-12 text-destructive" />
+						<p className="text-destructive">{error || "Stream error"}</p>
+						<Button variant="secondary" onClick={handleStartStream}>
 							Retry
-						</button>
+						</Button>
 					</div>
 				)}
 
@@ -94,28 +88,26 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 				{isStreaming && (
 					<>
 						{/* Live indicator */}
-						<div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-600 text-white text-sm">
-							<span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-							<Video className="w-4 h-4" />
-							LIVE
+						<div className="absolute top-4 left-4">
+							<Badge variant="destructive" className="gap-1.5">
+								<span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+								<Video className="w-4 h-4" />
+								LIVE
+							</Badge>
 						</div>
 
 						{/* Stop button */}
 						<div className="absolute bottom-4 right-4">
-							<button
-								onClick={stopStream}
-								className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-								type="button"
-							>
+							<Button variant="destructive" onClick={stopStream}>
 								<Square className="w-4 h-4" />
 								Stop
-							</button>
+							</Button>
 						</div>
 					</>
 				)}
 			</div>
 
-			<p className="text-center text-gray-400 text-sm mt-2">
+			<p className="text-center text-muted-foreground text-sm p-3">
 				{isStreaming
 					? "Live HLS stream from your Ring device"
 					: "HLS live streaming - click to start"}

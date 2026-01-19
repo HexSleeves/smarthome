@@ -1,6 +1,8 @@
 import { RefreshCw, Video } from "lucide-react";
 import { useState } from "react";
 import { getRingSnapshotUrl } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 type DoorbellSnapshotProps = {
 	deviceId: string;
@@ -11,8 +13,8 @@ export function DoorbellSnapshot({ deviceId }: DoorbellSnapshotProps) {
 	const snapshotUrl = `${getRingSnapshotUrl(deviceId)}&t=${snapshotKey}`;
 
 	return (
-		<div className="p-6 bg-gray-900">
-			<div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+		<div className="bg-muted rounded-lg overflow-hidden">
+			<div className="relative aspect-video bg-black">
 				<img
 					src={snapshotUrl}
 					alt="Camera snapshot"
@@ -21,22 +23,24 @@ export function DoorbellSnapshot({ deviceId }: DoorbellSnapshotProps) {
 						(e.target as HTMLImageElement).style.display = "none";
 					}}
 				/>
-				<div className="absolute bottom-4 right-4 flex gap-2">
-					<button
+				<div className="absolute bottom-4 right-4">
+					<Button
+						size="icon"
+						variant="secondary"
 						onClick={() => setSnapshotKey((k) => k + 1)}
-						className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
 						title="Refresh snapshot"
-						type="button"
 					>
 						<RefreshCw className="w-5 h-5" />
-					</button>
+					</Button>
 				</div>
-				<div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-600 text-white text-sm">
-					<Video className="w-4 h-4" />
-					Live
+				<div className="absolute top-4 left-4">
+					<Badge variant="destructive" className="gap-1">
+						<Video className="w-4 h-4" />
+						Live
+					</Badge>
 				</div>
 			</div>
-			<p className="text-center text-gray-400 text-sm mt-2">
+			<p className="text-center text-muted-foreground text-sm p-3">
 				Snapshot view - Full live streaming requires WebRTC setup
 			</p>
 		</div>

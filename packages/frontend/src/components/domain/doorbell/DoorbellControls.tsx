@@ -1,6 +1,8 @@
 import type { RingDeviceState } from "@smarthome/shared";
 import { AlertTriangle, Sun } from "lucide-react";
 import { useRingControls } from "@/hooks";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 type DoorbellControlsProps = {
 	device: RingDeviceState;
@@ -15,34 +17,32 @@ export function DoorbellControls({ device, isAdmin }: DoorbellControlsProps) {
 	}
 
 	return (
-		<div>
-			<h3 className="text-sm font-medium text-gray-500 mb-3">Controls</h3>
+		<div className="space-y-3">
+			<Label className="text-muted-foreground">Controls</Label>
 			<div className="flex flex-wrap gap-3">
 				{device.hasLight && (
-					<button
+					<Button
+						variant="secondary"
 						onClick={() => toggleLight(true)}
 						disabled={!isAdmin || isPending}
-						className="btn btn-secondary flex items-center gap-2"
-						type="button"
 					>
 						<Sun className="w-4 h-4" />
 						Turn Light On
-					</button>
+					</Button>
 				)}
 				{device.hasSiren && (
-					<button
+					<Button
+						variant="destructive"
 						onClick={() => triggerSiren()}
 						disabled={!isAdmin || isPending}
-						className="btn btn-danger flex items-center gap-2"
-						type="button"
 					>
 						<AlertTriangle className="w-4 h-4" />
 						Trigger Siren
-					</button>
+					</Button>
 				)}
 			</div>
 			{!isAdmin && (
-				<p className="text-sm text-gray-500 mt-2">
+				<p className="text-sm text-muted-foreground">
 					Admin access required for controls.
 				</p>
 			)}

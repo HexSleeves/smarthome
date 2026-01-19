@@ -1,8 +1,12 @@
 import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff, Home } from "lucide-react";
 import { useState } from "react";
-import { FieldError } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function LoginPage() {
 	const [isRegister, setIsRegister] = useState(false);
@@ -32,183 +36,181 @@ export function LoginPage() {
 	});
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+		<div className="min-h-screen bg-background flex items-center justify-center p-4">
 			<div className="w-full max-w-md">
 				{/* Logo */}
 				<div className="text-center mb-8">
-					<div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 text-white mb-4">
+					<div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4">
 						<Home className="w-8 h-8" />
 					</div>
 					<h1 className="text-2xl font-bold">Smart Home</h1>
-					<p className="text-gray-500 mt-1">
+					<p className="text-muted-foreground mt-1">
 						Control your devices from anywhere
 					</p>
 				</div>
 
 				{/* Form */}
-				<div className="card p-6">
-					<form
-						onSubmit={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							form.handleSubmit();
-						}}
-						className="space-y-4"
-					>
-						<h2 className="text-xl font-semibold text-center mb-6">
-							{isRegister ? "Create Account" : "Welcome Back"}
-						</h2>
+				<Card>
+					<CardHeader className="text-center">
+						<CardTitle>{isRegister ? "Create Account" : "Welcome Back"}</CardTitle>
+						<CardDescription>
+							{isRegister
+								? "Enter your details to create an account"
+								: "Enter your credentials to sign in"}
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								form.handleSubmit();
+							}}
+							className="space-y-4"
+						>
+							{error && (
+								<Alert variant="destructive">
+									<AlertDescription>{error}</AlertDescription>
+								</Alert>
+							)}
 
-						{error && (
-							<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-								{error}
-							</div>
-						)}
+							{isRegister && (
+								<form.Field name="name">
+									{(field) => (
+										<div className="space-y-2">
+											<Label htmlFor={field.name}>Name</Label>
+											<Input
+												id={field.name}
+												name={field.name}
+												type="text"
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Your name"
+											/>
+										</div>
+									)}
+								</form.Field>
+							)}
 
-						{isRegister && (
-							<form.Field name="name">
+							<form.Field
+								name="email"
+								validators={{
+									onChange: ({ value }) =>
+										!value
+											? "Email is required"
+											: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+												? "Invalid email format"
+												: undefined,
+								}}
+							>
 								{(field) => (
-									<div>
-										<label
-											htmlFor={field.name}
-											className="block text-sm font-medium mb-1"
-										>
-											Name
-										</label>
-										<input
+									<div className="space-y-2">
+										<Label htmlFor={field.name}>Email</Label>
+										<Input
 											id={field.name}
 											name={field.name}
-											type="text"
+											type="email"
 											value={field.state.value}
 											onBlur={field.handleBlur}
 											onChange={(e) => field.handleChange(e.target.value)}
-											className="input w-full"
-											placeholder="Your name"
+											placeholder="you@example.com"
+											required
 										/>
+										{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+											<p className="text-sm text-destructive">
+												{field.state.meta.errors.join(", ")}
+											</p>
+										)}
 									</div>
 								)}
 							</form.Field>
-						)}
 
-						<form.Field
-							name="email"
-							validators={{
-								onChange: ({ value }) =>
-									!value
-										? "Email is required"
-										: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-											? "Invalid email format"
-											: undefined,
-							}}
-						>
-							{(field) => (
-								<div>
-									<label
-										htmlFor={field.name}
-										className="block text-sm font-medium mb-1"
-									>
-										Email
-									</label>
-									<input
-										id={field.name}
-										name={field.name}
-										type="email"
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										className="input w-full"
-										placeholder="you@example.com"
-										required
-									/>
-									<FieldError field={field} />
-								</div>
-							)}
-						</form.Field>
-
-						<form.Field
-							name="password"
-							validators={{
-								onChange: ({ value }) =>
-									!value
-										? "Password is required"
-										: value.length < 8
-											? "Password must be at least 8 characters"
-											: undefined,
-							}}
-						>
-							{(field) => (
-								<div>
-									<label
-										htmlFor={field.name}
-										className="block text-sm font-medium mb-1"
-									>
-										Password
-									</label>
-									<div className="relative">
-										<input
-											id={field.name}
-											name={field.name}
-											type={showPassword ? "text" : "password"}
-											value={field.state.value}
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-											className="input w-full pr-10"
-											placeholder="••••••••"
-											required
-											minLength={8}
-										/>
-										<button
-											type="button"
-											onClick={() => setShowPassword(!showPassword)}
-											className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-										>
-											{showPassword ? (
-												<EyeOff className="w-5 h-5" />
-											) : (
-												<Eye className="w-5 h-5" />
-											)}
-										</button>
+							<form.Field
+								name="password"
+								validators={{
+									onChange: ({ value }) =>
+										!value
+											? "Password is required"
+											: value.length < 8
+												? "Password must be at least 8 characters"
+												: undefined,
+								}}
+							>
+								{(field) => (
+									<div className="space-y-2">
+										<Label htmlFor={field.name}>Password</Label>
+										<div className="relative">
+											<Input
+												id={field.name}
+												name={field.name}
+												type={showPassword ? "text" : "password"}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												className="pr-10"
+												placeholder="••••••••"
+												required
+												minLength={8}
+											/>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+												onClick={() => setShowPassword(!showPassword)}
+											>
+												{showPassword ? (
+													<EyeOff className="w-5 h-5 text-muted-foreground" />
+												) : (
+													<Eye className="w-5 h-5 text-muted-foreground" />
+												)}
+											</Button>
+										</div>
+										{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+											<p className="text-sm text-destructive">
+												{field.state.meta.errors.join(", ")}
+											</p>
+										)}
 									</div>
-									<FieldError field={field} />
-								</div>
-							)}
-						</form.Field>
+								)}
+							</form.Field>
 
-						<form.Subscribe
-							selector={(state) => [state.canSubmit, state.isSubmitting]}
-						>
-							{([canSubmit, isSubmitting]) => (
-								<button
-									type="submit"
-									disabled={!canSubmit || isSubmitting}
-									className="btn btn-primary w-full"
-								>
-									{isSubmitting
-										? "Please wait..."
-										: isRegister
-											? "Create Account"
-											: "Sign In"}
-								</button>
-							)}
-						</form.Subscribe>
-					</form>
+							<form.Subscribe
+								selector={(state) => [state.canSubmit, state.isSubmitting]}
+							>
+								{([canSubmit, isSubmitting]) => (
+									<Button
+										type="submit"
+										className="w-full"
+										disabled={!canSubmit || isSubmitting}
+									>
+										{isSubmitting
+											? "Please wait..."
+											: isRegister
+												? "Create Account"
+												: "Sign In"}
+									</Button>
+								)}
+							</form.Subscribe>
+						</form>
 
-					<div className="mt-6 text-center">
-						<button
-							type="submit"
-							onClick={() => {
-								setIsRegister(!isRegister);
-								setError("");
-								form.reset();
-							}}
-							className="text-sm text-primary-600 hover:text-primary-700"
-						>
-							{isRegister
-								? "Already have an account? Sign in"
-								: "Don't have an account? Create one"}
-						</button>
-					</div>
-				</div>
+						<div className="mt-6 text-center">
+							<Button
+								variant="link"
+								onClick={() => {
+									setIsRegister(!isRegister);
+									setError("");
+									form.reset();
+								}}
+							>
+								{isRegister
+									? "Already have an account? Sign in"
+									: "Don't have an account? Create one"}
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
 			</div>
 		</div>
 	);

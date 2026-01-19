@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Card, CardContent } from "./card";
+import { cn } from "@/lib/utils";
 
 type StatusType = "success" | "warning" | "error" | "neutral";
 
@@ -12,10 +14,10 @@ type StatCardProps = {
 };
 
 const statusColors: Record<StatusType, string> = {
-	success: "text-green-600 bg-green-50 dark:bg-green-900/30",
-	warning: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/30",
-	error: "text-red-600 bg-red-50 dark:bg-red-900/30",
-	neutral: "text-gray-600 bg-gray-50 dark:bg-gray-700/50",
+	success: "text-green-600 bg-green-100 dark:bg-green-900/30",
+	warning: "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30",
+	error: "text-red-600 bg-red-100 dark:bg-red-900/30",
+	neutral: "text-muted-foreground bg-muted",
 };
 
 export function StatCard({
@@ -26,17 +28,19 @@ export function StatCard({
 	link,
 }: StatCardProps) {
 	const content = (
-		<div className="card p-4 hover:shadow-md transition-shadow">
-			<div className="flex items-center gap-3">
-				<div className={`p-2 rounded-lg ${statusColors[status]}`}>
-					<Icon className="w-5 h-5" />
+		<Card className="hover:shadow-md transition-shadow">
+			<CardContent className="p-4">
+				<div className="flex items-center gap-3">
+					<div className={cn("p-2 rounded-lg", statusColors[status])}>
+						<Icon className="w-5 h-5" />
+					</div>
+					<div>
+						<p className="text-sm text-muted-foreground">{title}</p>
+						<p className="font-semibold">{value}</p>
+					</div>
 				</div>
-				<div>
-					<p className="text-sm text-gray-500">{title}</p>
-					<p className="font-semibold">{value}</p>
-				</div>
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 
 	if (link) {

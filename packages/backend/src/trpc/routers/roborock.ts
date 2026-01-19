@@ -46,7 +46,10 @@ export const roborockRouter = router({
 	send2FACode: adminProcedure
 		.input(z.object({ email: z.email() }))
 		.mutation(async ({ ctx, input }) => {
-			const result = await roborockService.send2FACode(ctx.user.id, input.email);
+			const result = await roborockService.send2FACode(
+				ctx.user.id,
+				input.email,
+			);
 			if (!result.success) {
 				throw new Error(result.error || "Failed to send code");
 			}
@@ -56,7 +59,10 @@ export const roborockRouter = router({
 	verify2FACode: adminProcedure
 		.input(z.object({ code: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			const result = await roborockService.verify2FACode(ctx.user.id, input.code);
+			const result = await roborockService.verify2FACode(
+				ctx.user.id,
+				input.code,
+			);
 			if (!result.success) {
 				throw new Error(result.error || "Verification failed");
 			}

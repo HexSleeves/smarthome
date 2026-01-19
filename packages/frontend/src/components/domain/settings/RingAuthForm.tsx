@@ -1,7 +1,10 @@
 import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import { FieldError } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type RingAuthFormProps = {
 	onSubmit: (email: string, password: string) => Promise<void>;
@@ -35,14 +38,14 @@ export function RingAuthForm({
 			}}
 			className="space-y-4"
 		>
-			<p className="text-gray-600 dark:text-gray-400">
+			<p className="text-muted-foreground">
 				Enter your Ring account credentials.
 			</p>
 
 			{error && (
-				<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-					{error}
-				</div>
+				<Alert variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
 			)}
 
 			<form.Field
@@ -56,25 +59,23 @@ export function RingAuthForm({
 								: undefined,
 				}}
 				children={(field) => (
-					<div>
-						<label
-							htmlFor={field.name}
-							className="block text-sm font-medium mb-1"
-						>
-							Email
-						</label>
-						<input
+					<div className="space-y-2">
+						<Label htmlFor={field.name}>Email</Label>
+						<Input
 							id={field.name}
 							name={field.name}
 							type="email"
 							value={field.state.value}
 							onBlur={field.handleBlur}
 							onChange={(e) => field.handleChange(e.target.value)}
-							className="input w-full"
 							placeholder="your@email.com"
 							required
 						/>
-						<FieldError field={field} />
+						{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+							<p className="text-sm text-destructive">
+								{field.state.meta.errors.join(", ")}
+							</p>
+						)}
 					</div>
 				)}
 			/>
@@ -86,38 +87,39 @@ export function RingAuthForm({
 						!value ? "Password is required" : undefined,
 				}}
 				children={(field) => (
-					<div>
-						<label
-							htmlFor={field.name}
-							className="block text-sm font-medium mb-1"
-						>
-							Password
-						</label>
+					<div className="space-y-2">
+						<Label htmlFor={field.name}>Password</Label>
 						<div className="relative">
-							<input
+							<Input
 								id={field.name}
 								name={field.name}
 								type={showPassword ? "text" : "password"}
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								className="input w-full pr-10"
+								className="pr-10"
 								placeholder="••••••••"
 								required
 							/>
-							<button
+							<Button
 								type="button"
+								variant="ghost"
+								size="icon"
+								className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
 								onClick={() => setShowPassword(!showPassword)}
-								className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
 							>
 								{showPassword ? (
-									<EyeOff className="w-5 h-5" />
+									<EyeOff className="w-5 h-5 text-muted-foreground" />
 								) : (
-									<Eye className="w-5 h-5" />
+									<Eye className="w-5 h-5 text-muted-foreground" />
 								)}
-							</button>
+							</Button>
 						</div>
-						<FieldError field={field} />
+						{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+							<p className="text-sm text-destructive">
+								{field.state.meta.errors.join(", ")}
+							</p>
+						)}
 					</div>
 				)}
 			/>
@@ -125,13 +127,9 @@ export function RingAuthForm({
 			<form.Subscribe
 				selector={(state) => [state.canSubmit, state.isSubmitting]}
 				children={([canSubmit]) => (
-					<button
-						type="submit"
-						disabled={!canSubmit || isSubmitting}
-						className="btn btn-primary"
-					>
+					<Button type="submit" disabled={!canSubmit || isSubmitting}>
 						{isSubmitting ? "Connecting..." : "Connect Ring"}
-					</button>
+					</Button>
 				)}
 			/>
 		</form>

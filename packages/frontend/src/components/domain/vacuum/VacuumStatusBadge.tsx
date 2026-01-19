@@ -1,13 +1,15 @@
 import type { RoborockStatus } from "@smarthome/shared";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-const statusColors: Record<RoborockStatus, string> = {
-	idle: "bg-gray-500",
-	cleaning: "bg-green-500",
-	returning: "bg-blue-500",
-	charging: "bg-yellow-500",
-	paused: "bg-orange-500",
-	error: "bg-red-500",
-	offline: "bg-gray-400",
+const statusConfig: Record<RoborockStatus, { variant: "success" | "warning" | "destructive" | "info" | "secondary"; dot: string }> = {
+	idle: { variant: "secondary", dot: "bg-gray-500" },
+	cleaning: { variant: "success", dot: "bg-green-500" },
+	returning: { variant: "info", dot: "bg-blue-500" },
+	charging: { variant: "warning", dot: "bg-yellow-500" },
+	paused: { variant: "warning", dot: "bg-orange-500" },
+	error: { variant: "destructive", dot: "bg-red-500" },
+	offline: { variant: "secondary", dot: "bg-gray-400" },
 };
 
 const statusText: Record<RoborockStatus, string> = {
@@ -25,10 +27,11 @@ type VacuumStatusBadgeProps = {
 };
 
 export function VacuumStatusBadge({ status }: VacuumStatusBadgeProps) {
+	const config = statusConfig[status];
 	return (
-		<div className="flex items-center gap-2">
-			<div className={`w-3 h-3 rounded-full ${statusColors[status]}`} />
-			<span className="font-medium">{statusText[status]}</span>
-		</div>
+		<Badge variant={config.variant} className="gap-1.5">
+			<span className={cn("w-2 h-2 rounded-full", config.dot)} />
+			{statusText[status]}
+		</Badge>
 	);
 }

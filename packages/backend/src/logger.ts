@@ -8,7 +8,9 @@ import type { Config } from "./config.js";
  * Creates logger configuration for Fastify.
  * Supports console logging and optional file logging.
  */
-export function createLoggerConfig(config: Config): FastifyServerOptions["logger"] {
+export function createLoggerConfig(
+	config: Config,
+): FastifyServerOptions["logger"] {
 	const targets: Array<{
 		target: string;
 		level: string;

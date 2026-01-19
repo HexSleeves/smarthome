@@ -1,4 +1,7 @@
 import type { AnyFieldApi } from "@tanstack/react-form";
+import { Input } from "./input";
+import { Label } from "./label";
+import { cn } from "@/lib/utils";
 
 type FormFieldProps = {
 	field: AnyFieldApi;
@@ -18,19 +21,16 @@ export function FormField({
 	children,
 }: FormFieldProps) {
 	return (
-		<div className={className}>
-			<label htmlFor={field.name} className="block text-sm font-medium mb-1">
-				{label}
-			</label>
+		<div className={cn("space-y-2", className)}>
+			<Label htmlFor={field.name}>{label}</Label>
 			{children || (
-				<input
+				<Input
 					id={field.name}
 					name={field.name}
 					type={type}
 					value={(field.state.value as string) ?? ""}
 					onBlur={field.handleBlur}
 					onChange={(e) => field.handleChange(e.target.value)}
-					className="input w-full"
 					placeholder={placeholder}
 				/>
 			)}
@@ -48,7 +48,7 @@ export function FieldError({ field }: { field: AnyFieldApi }) {
 	if (!errors) return null;
 
 	return (
-		<p className="text-sm text-red-600 mt-1">
+		<p className="text-sm text-destructive">
 			{errors.map((error) => String(error)).join(", ")}
 		</p>
 	);

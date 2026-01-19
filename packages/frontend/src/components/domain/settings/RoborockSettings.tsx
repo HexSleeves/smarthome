@@ -9,8 +9,13 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useState } from "react";
-import { FieldError } from "@/components/ui";
 import { useRoborockAuth, useRoborockStatus } from "@/hooks";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type AuthStep = "credentials" | "2fa";
 
@@ -111,236 +116,219 @@ export function RoborockSettings() {
 	};
 
 	return (
-		<div className="card p-6">
-			<div className="flex items-center justify-between mb-4">
-				<h2 className="text-lg font-semibold flex items-center gap-2">
+		<Card>
+			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+				<CardTitle className="flex items-center gap-2">
 					<Wifi className="w-5 h-5" />
 					Roborock
-				</h2>
+				</CardTitle>
 				{statusLoading ? (
 					<Loader2 className="w-5 h-5 animate-spin" />
 				) : connected ? (
-					<span className="flex items-center gap-1 text-green-600">
-						<CheckCircle className="w-4 h-4" />
+					<Badge variant="success" className="gap-1">
+						<CheckCircle className="w-3 h-3" />
 						Connected
-					</span>
+					</Badge>
 				) : (
-					<span className="flex items-center gap-1 text-gray-500">
-						<XCircle className="w-4 h-4" />
+					<Badge variant="secondary" className="gap-1">
+						<XCircle className="w-3 h-3" />
 						Disconnected
-					</span>
+					</Badge>
 				)}
-			</div>
-
-			{connected ? (
-				<div className="space-y-4">
-					<p className="text-gray-600 dark:text-gray-400">
-						Your Roborock account is connected.
-					</p>
-					<button
-						type="button"
-						onClick={() => disconnect()}
-						disabled={isDisconnecting}
-						className="btn btn-secondary"
-					>
-						{isDisconnecting ? "Disconnecting..." : "Disconnect"}
-					</button>
-				</div>
-			) : hasCredentials ? (
-				<div className="space-y-4">
-					<p className="text-gray-600 dark:text-gray-400">
-						Credentials stored. Click connect to re-establish connection.
-					</p>
-					{error && (
-						<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-							{error}
-						</div>
-					)}
-					<button
-						type="button"
-						onClick={handleConnect}
-						disabled={isConnecting}
-						className="btn btn-primary"
-					>
-						{isConnecting ? "Connecting..." : "Connect"}
-					</button>
-				</div>
-			) : authStep === "2fa" ? (
-				<div className="space-y-4">
-					<div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-						<Mail className="w-5 h-5" />
-						<span className="font-medium">Verification Required</span>
-					</div>
-					<p className="text-gray-600 dark:text-gray-400">
-						A verification code has been sent to{" "}
-						<span className="font-medium">{pendingEmail}</span>. Please enter it
-						below.
-					</p>
-
-					{error && (
-						<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-							{error}
-						</div>
-					)}
-
-					<div>
-						<label
-							htmlFor="verification-code"
-							className="block text-sm font-medium mb-1"
+			</CardHeader>
+			<CardContent>
+				{connected ? (
+					<div className="space-y-4">
+						<p className="text-muted-foreground">
+							Your Roborock account is connected.
+						</p>
+						<Button
+							variant="secondary"
+							onClick={() => disconnect()}
+							disabled={isDisconnecting}
 						>
-							Verification Code
-						</label>
-						<input
-							id="verification-code"
-							type="text"
-							value={verificationCode}
-							onChange={(e) => setVerificationCode(e.target.value)}
-							className="input w-full font-mono text-center text-lg tracking-widest"
-							placeholder="000000"
-							maxLength={6}
-							autoComplete="one-time-code"
-						/>
+							{isDisconnecting ? "Disconnecting..." : "Disconnect"}
+						</Button>
 					</div>
-
-					<div className="flex gap-2">
-						<button
-							type="button"
-							onClick={handleVerify2FA}
-							disabled={isVerifying2FACode || !verificationCode}
-							className="btn btn-primary flex-1"
-						>
-							{isVerifying2FACode ? "Verifying..." : "Verify"}
-						</button>
-						<button
-							type="button"
-							onClick={handleBackToCredentials}
-							className="btn btn-secondary"
-						>
-							Back
-						</button>
-					</div>
-
-					<button
-						type="button"
-						onClick={handleResendCode}
-						disabled={isSending2FACode}
-						className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-					>
-						{isSending2FACode ? "Sending..." : "Resend code"}
-					</button>
-				</div>
-			) : (
-				<form
-					onSubmit={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						form.handleSubmit();
-					}}
-					className="space-y-4"
-				>
-					<p className="text-gray-600 dark:text-gray-400">
-						Enter your Roborock account credentials.
-					</p>
-
-					{error && (
-						<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-							{error}
-						</div>
-					)}
-
-					<form.Field
-						name="email"
-						validators={{
-							onChange: ({ value }) =>
-								!value
-									? "Email is required"
-									: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-										? "Invalid email format"
-										: undefined,
-						}}
-						children={(field) => (
-							<div>
-								<label
-									htmlFor={field.name}
-									className="block text-sm font-medium mb-1"
-								>
-									Email
-								</label>
-								<input
-									id={field.name}
-									name={field.name}
-									type="email"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-									className="input w-full"
-									placeholder="your@email.com"
-									required
-								/>
-								<FieldError field={field} />
-							</div>
+				) : hasCredentials ? (
+					<div className="space-y-4">
+						<p className="text-muted-foreground">
+							Credentials stored. Click connect to re-establish connection.
+						</p>
+						{error && (
+							<Alert variant="destructive">
+								<AlertDescription>{error}</AlertDescription>
+							</Alert>
 						)}
-					/>
+						<Button onClick={handleConnect} disabled={isConnecting}>
+							{isConnecting ? "Connecting..." : "Connect"}
+						</Button>
+					</div>
+				) : authStep === "2fa" ? (
+					<div className="space-y-4">
+						<Alert variant="info">
+							<Mail className="w-4 h-4" />
+							<AlertTitle>Verification Required</AlertTitle>
+							<AlertDescription>
+								A verification code has been sent to{" "}
+								<span className="font-medium">{pendingEmail}</span>. Please enter it
+								below.
+							</AlertDescription>
+						</Alert>
 
-					<form.Field
-						name="password"
-						validators={{
-							onChange: ({ value }) =>
-								!value ? "Password is required" : undefined,
+						{error && (
+							<Alert variant="destructive">
+								<AlertDescription>{error}</AlertDescription>
+							</Alert>
+						)}
+
+						<div className="space-y-2">
+							<Label htmlFor="verification-code">Verification Code</Label>
+							<Input
+								id="verification-code"
+								type="text"
+								value={verificationCode}
+								onChange={(e) => setVerificationCode(e.target.value)}
+								className="font-mono text-center text-lg tracking-widest"
+								placeholder="000000"
+								maxLength={6}
+								autoComplete="one-time-code"
+							/>
+						</div>
+
+						<div className="flex gap-2">
+							<Button
+								onClick={handleVerify2FA}
+								disabled={isVerifying2FACode || !verificationCode}
+								className="flex-1"
+							>
+								{isVerifying2FACode ? "Verifying..." : "Verify"}
+							</Button>
+							<Button variant="secondary" onClick={handleBackToCredentials}>
+								Back
+							</Button>
+						</div>
+
+						<Button
+							variant="link"
+							onClick={handleResendCode}
+							disabled={isSending2FACode}
+							className="px-0"
+						>
+							{isSending2FACode ? "Sending..." : "Resend code"}
+						</Button>
+					</div>
+				) : (
+					<form
+						onSubmit={(e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							form.handleSubmit();
 						}}
-						children={(field) => (
-							<div>
-								<label
-									htmlFor={field.name}
-									className="block text-sm font-medium mb-1"
-								>
-									Password
-								</label>
-								<div className="relative">
-									<input
+						className="space-y-4"
+					>
+						<p className="text-muted-foreground">
+							Enter your Roborock account credentials.
+						</p>
+
+						{error && (
+							<Alert variant="destructive">
+								<AlertDescription>{error}</AlertDescription>
+							</Alert>
+						)}
+
+						<form.Field
+							name="email"
+							validators={{
+								onChange: ({ value }) =>
+									!value
+										? "Email is required"
+										: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+											? "Invalid email format"
+											: undefined,
+							}}
+							children={(field) => (
+								<div className="space-y-2">
+									<Label htmlFor={field.name}>Email</Label>
+									<Input
 										id={field.name}
 										name={field.name}
-										type={showPassword ? "text" : "password"}
+										type="email"
 										value={field.state.value}
 										onBlur={field.handleBlur}
 										onChange={(e) => field.handleChange(e.target.value)}
-										className="input w-full pr-10"
-										placeholder="••••••••"
+										placeholder="your@email.com"
 										required
 									/>
-									<button
-										type="button"
-										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-									>
-										{showPassword ? (
-											<EyeOff className="w-5 h-5" />
-										) : (
-											<Eye className="w-5 h-5" />
-										)}
-									</button>
+									{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+										<p className="text-sm text-destructive">
+											{field.state.meta.errors.join(", ")}
+										</p>
+									)}
 								</div>
-								<FieldError field={field} />
-							</div>
-						)}
-					/>
+							)}
+						/>
 
-					<form.Subscribe
-						selector={(state) => [state.canSubmit, state.isSubmitting]}
-						children={([canSubmit]) => (
-							<button
-								type="submit"
-								disabled={!canSubmit || isAuthenticating || isSending2FACode}
-								className="btn btn-primary"
-							>
-								{isAuthenticating || isSending2FACode
-									? "Connecting..."
-									: "Connect Roborock"}
-							</button>
-						)}
-					/>
-				</form>
-			)}
-		</div>
+						<form.Field
+							name="password"
+							validators={{
+								onChange: ({ value }) =>
+									!value ? "Password is required" : undefined,
+							}}
+							children={(field) => (
+								<div className="space-y-2">
+									<Label htmlFor={field.name}>Password</Label>
+									<div className="relative">
+										<Input
+											id={field.name}
+											name={field.name}
+											type={showPassword ? "text" : "password"}
+											value={field.state.value}
+											onBlur={field.handleBlur}
+											onChange={(e) => field.handleChange(e.target.value)}
+											className="pr-10"
+											placeholder="••••••••"
+											required
+										/>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+											onClick={() => setShowPassword(!showPassword)}
+										>
+											{showPassword ? (
+												<EyeOff className="w-5 h-5 text-muted-foreground" />
+											) : (
+												<Eye className="w-5 h-5 text-muted-foreground" />
+											)}
+										</Button>
+									</div>
+									{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+										<p className="text-sm text-destructive">
+											{field.state.meta.errors.join(", ")}
+										</p>
+									)}
+								</div>
+							)}
+						/>
+
+						<form.Subscribe
+							selector={(state) => [state.canSubmit, state.isSubmitting]}
+							children={([canSubmit]) => (
+								<Button
+									type="submit"
+									disabled={!canSubmit || isAuthenticating || isSending2FACode}
+								>
+									{isAuthenticating || isSending2FACode
+										? "Connecting..."
+										: "Connect Roborock"}
+								</Button>
+							)}
+						/>
+					</form>
+				)}
+			</CardContent>
+		</Card>
 	);
 }

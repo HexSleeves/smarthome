@@ -1,5 +1,8 @@
 import { useForm } from "@tanstack/react-form";
-import { FieldError } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type Ring2FAFormProps = {
 	prompt: string;
@@ -37,17 +40,15 @@ export function Ring2FAForm({
 			}}
 			className="space-y-4"
 		>
-			<div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
-				<p className="text-blue-700 dark:text-blue-300 font-medium mb-1">
-					2FA Code Required
-				</p>
-				<p className="text-blue-600 dark:text-blue-400 text-sm">{prompt}</p>
-			</div>
+			<Alert variant="info">
+				<AlertTitle>2FA Code Required</AlertTitle>
+				<AlertDescription>{prompt}</AlertDescription>
+			</Alert>
 
 			{error && (
-				<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-					{error}
-				</div>
+				<Alert variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
 			)}
 
 			<form.Field
@@ -61,14 +62,9 @@ export function Ring2FAForm({
 					},
 				}}
 				children={(field) => (
-					<div>
-						<label
-							htmlFor={field.name}
-							className="block text-sm font-medium mb-1"
-						>
-							Verification Code
-						</label>
-						<input
+					<div className="space-y-2">
+						<Label htmlFor={field.name}>Verification Code</Label>
+						<Input
 							id={field.name}
 							name={field.name}
 							type="text"
@@ -77,13 +73,17 @@ export function Ring2FAForm({
 							onChange={(e) =>
 								field.handleChange(e.target.value.replace(/\D/g, ""))
 							}
-							className="input w-full text-center text-2xl tracking-widest"
+							className="text-center text-2xl tracking-widest"
 							placeholder="000000"
 							maxLength={6}
 							autoFocus
 							required
 						/>
-						<FieldError field={field} />
+						{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+							<p className="text-sm text-destructive">
+								{field.state.meta.errors.join(", ")}
+							</p>
+						)}
 					</div>
 				)}
 			/>
@@ -92,23 +92,23 @@ export function Ring2FAForm({
 				selector={(state) => [state.canSubmit, state.values.code]}
 				children={([canSubmit, code]) => (
 					<div className="flex gap-2">
-						<button
+						<Button
 							type="submit"
+							className="flex-1"
 							disabled={
 								!canSubmit || isSubmitting || (code as string).length < 4
 							}
-							className="btn btn-primary flex-1"
 						>
 							{isSubmitting ? "Verifying..." : "Verify Code"}
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
+							variant="secondary"
 							onClick={onCancel}
 							disabled={isCancelling}
-							className="btn btn-secondary"
 						>
 							Cancel
-						</button>
+						</Button>
 					</div>
 				)}
 			/>

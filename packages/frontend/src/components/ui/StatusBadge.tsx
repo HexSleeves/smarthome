@@ -1,4 +1,5 @@
-import { clsx } from "clsx";
+import { Badge } from "./badge";
+import { cn } from "@/lib/utils";
 
 type StatusType = "success" | "warning" | "error" | "neutral" | "info";
 
@@ -8,12 +9,23 @@ type StatusBadgeProps = {
 	showDot?: boolean;
 };
 
-const statusStyles: Record<StatusType, { dot: string; text: string }> = {
-	success: { dot: "bg-green-500", text: "text-green-600" },
-	warning: { dot: "bg-yellow-500", text: "text-yellow-600" },
-	error: { dot: "bg-red-500", text: "text-red-600" },
-	neutral: { dot: "bg-gray-400", text: "text-gray-600" },
-	info: { dot: "bg-blue-500", text: "text-blue-600" },
+const statusVariants: Record<
+	StatusType,
+	"success" | "warning" | "destructive" | "secondary" | "info"
+> = {
+	success: "success",
+	warning: "warning",
+	error: "destructive",
+	neutral: "secondary",
+	info: "info",
+};
+
+const dotColors: Record<StatusType, string> = {
+	success: "bg-green-500",
+	warning: "bg-yellow-500",
+	error: "bg-red-500",
+	neutral: "bg-gray-400",
+	info: "bg-blue-500",
 };
 
 export function StatusBadge({
@@ -21,13 +33,13 @@ export function StatusBadge({
 	label,
 	showDot = true,
 }: StatusBadgeProps) {
-	const styles = statusStyles[status];
-
 	return (
-		<div className={clsx("flex items-center gap-1.5", styles.text)}>
-			{showDot && <div className={clsx("w-2 h-2 rounded-full", styles.dot)} />}
-			<span>{label}</span>
-		</div>
+		<Badge variant={statusVariants[status]} className="gap-1.5">
+			{showDot && (
+				<span className={cn("w-2 h-2 rounded-full", dotColors[status])} />
+			)}
+			{label}
+		</Badge>
 	);
 }
 

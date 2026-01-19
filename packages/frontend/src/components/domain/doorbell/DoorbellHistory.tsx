@@ -1,5 +1,8 @@
 import { Clock } from "lucide-react";
 import { useRingHistory } from "@/hooks";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 type DoorbellHistoryProps = {
 	deviceId: string;
@@ -13,29 +16,30 @@ export function DoorbellHistory({ deviceId }: DoorbellHistoryProps) {
 	}
 
 	return (
-		<div>
-			<h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+		<div className="space-y-3">
+			<Label className="text-muted-foreground flex items-center gap-2">
 				<Clock className="w-4 h-4" />
 				Recent Events
-			</h3>
+			</Label>
 			<div className="space-y-2">
 				{history.map((event, i) => (
 					<div
 						key={event.ding_id_str || i}
-						className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50"
+						className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
 					>
-						<div
-							className={`w-2 h-2 rounded-full ${
+						<span
+							className={cn(
+								"w-2 h-2 rounded-full",
 								event.kind === "ding" ? "bg-yellow-500" : "bg-blue-500"
-							}`}
+							)}
 						/>
 						<div className="flex-1">
-							<p className="text-sm font-medium capitalize">
+							<Badge variant={event.kind === "ding" ? "warning" : "info"}>
 								{event.kind === "ding"
 									? "Doorbell Press"
 									: event.kind || "Motion"}
-							</p>
-							<p className="text-xs text-gray-500">
+							</Badge>
+							<p className="text-xs text-muted-foreground mt-1">
 								{event.created_at
 									? new Date(event.created_at).toLocaleString()
 									: "Unknown time"}

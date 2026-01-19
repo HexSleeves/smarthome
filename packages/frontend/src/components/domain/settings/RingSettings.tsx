@@ -3,6 +3,10 @@ import { useEffect, useState } from "react";
 import { useRingAuth, useRingStatus } from "@/hooks";
 import { Ring2FAForm } from "./Ring2FAForm";
 import { RingAuthForm } from "./RingAuthForm";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function RingSettings() {
 	const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
@@ -80,43 +84,44 @@ export function RingSettings() {
 	};
 
 	return (
-		<div className="card p-6">
-			<div className="flex items-center justify-between mb-4">
-				<h2 className="text-lg font-semibold flex items-center gap-2">
+		<Card>
+			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+				<CardTitle className="flex items-center gap-2">
 					<Bell className="w-5 h-5" />
 					Ring
-				</h2>
+				</CardTitle>
 				<ConnectionBadge connected={connected} isLoading={statusLoading} />
-			</div>
-
-			{connected ? (
-				<ConnectedState
-					onDisconnect={disconnect}
-					isDisconnecting={isDisconnecting}
-				/>
-			) : hasCredentials ? (
-				<StoredCredentialsState
-					onConnect={handleConnect}
-					isConnecting={isConnecting}
-					error={error}
-				/>
-			) : requiresTwoFactor ? (
-				<Ring2FAForm
-					prompt={twoFactorPrompt}
-					onSubmit={handle2FA}
-					onCancel={handleCancel2FA}
-					isSubmitting={isSubmitting2FA}
-					isCancelling={isCancelling2FA}
-					error={error}
-				/>
-			) : (
-				<RingAuthForm
-					onSubmit={handleAuth}
-					isSubmitting={isAuthenticating}
-					error={error}
-				/>
-			)}
-		</div>
+			</CardHeader>
+			<CardContent>
+				{connected ? (
+					<ConnectedState
+						onDisconnect={disconnect}
+						isDisconnecting={isDisconnecting}
+					/>
+				) : hasCredentials ? (
+					<StoredCredentialsState
+						onConnect={handleConnect}
+						isConnecting={isConnecting}
+						error={error}
+					/>
+				) : requiresTwoFactor ? (
+					<Ring2FAForm
+						prompt={twoFactorPrompt}
+						onSubmit={handle2FA}
+						onCancel={handleCancel2FA}
+						isSubmitting={isSubmitting2FA}
+						isCancelling={isCancelling2FA}
+						error={error}
+					/>
+				) : (
+					<RingAuthForm
+						onSubmit={handleAuth}
+						isSubmitting={isAuthenticating}
+						error={error}
+					/>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -132,17 +137,17 @@ function ConnectionBadge({
 	}
 	if (connected) {
 		return (
-			<span className="flex items-center gap-1 text-green-600">
-				<CheckCircle className="w-4 h-4" />
+			<Badge variant="success" className="gap-1">
+				<CheckCircle className="w-3 h-3" />
 				Connected
-			</span>
+			</Badge>
 		);
 	}
 	return (
-		<span className="flex items-center gap-1 text-gray-500">
-			<XCircle className="w-4 h-4" />
+		<Badge variant="secondary" className="gap-1">
+			<XCircle className="w-3 h-3" />
 			Disconnected
-		</span>
+		</Badge>
 	);
 }
 
@@ -155,17 +160,16 @@ function ConnectedState({
 }) {
 	return (
 		<div className="space-y-4">
-			<p className="text-gray-600 dark:text-gray-400">
+			<p className="text-muted-foreground">
 				Your Ring account is connected.
 			</p>
-			<button
-				type="button"
+			<Button
+				variant="secondary"
 				onClick={onDisconnect}
 				disabled={isDisconnecting}
-				className="btn btn-secondary"
 			>
 				{isDisconnecting ? "Disconnecting..." : "Disconnect"}
-			</button>
+			</Button>
 		</div>
 	);
 }
@@ -181,22 +185,17 @@ function StoredCredentialsState({
 }) {
 	return (
 		<div className="space-y-4">
-			<p className="text-gray-600 dark:text-gray-400">
+			<p className="text-muted-foreground">
 				Credentials stored. Click connect to re-establish connection.
 			</p>
 			{error && (
-				<div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-					{error}
-				</div>
+				<Alert variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
 			)}
-			<button
-				type="button"
-				onClick={onConnect}
-				disabled={isConnecting}
-				className="btn btn-primary"
-			>
+			<Button onClick={onConnect} disabled={isConnecting}>
 				{isConnecting ? "Connecting..." : "Connect"}
-			</button>
+			</Button>
 		</div>
 	);
 }

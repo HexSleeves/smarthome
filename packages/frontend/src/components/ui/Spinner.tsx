@@ -1,5 +1,5 @@
-import { clsx } from "clsx";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type SpinnerProps = {
 	size?: "sm" | "md" | "lg";
@@ -15,11 +15,7 @@ const sizeClasses = {
 export function Spinner({ size = "md", className }: SpinnerProps) {
 	return (
 		<Loader2
-			className={clsx(
-				"animate-spin text-primary-600",
-				sizeClasses[size],
-				className,
-			)}
+			className={cn("animate-spin text-primary", sizeClasses[size], className)}
 		/>
 	);
 }

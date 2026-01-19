@@ -74,7 +74,9 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 			socket.on("close", () => {
 				const c = clients.get(socket);
 				if (c) {
-					c.unsubscribers.forEach((u) => u());
+					c.unsubscribers.forEach((u) => {
+						u();
+					});
 					clients.delete(socket);
 				}
 			});

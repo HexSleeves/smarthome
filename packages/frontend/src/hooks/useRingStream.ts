@@ -1,3 +1,4 @@
+import Hls from "hls.js";
 import { useCallback, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 
@@ -7,29 +8,31 @@ export function useRingStream(deviceId: string) {
 	const [state, setState] = useState<StreamState>("idle");
 	const [error, setError] = useState<string | null>(null);
 	const sessionIdRef = useRef<string | null>(null);
-	const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+	const hlsRef = useRef<Hls | null>(null);
 	const videoRef = useRef<HTMLVideoElement | null>(null);
-	const isStreamingRef = useRef(false); // Use ref to track streaming state for async code
+	const isStreamingRef = useRef(false);
 
 	const startStreamMutation = trpc.ring.startStream.useMutation();
 	const stopStreamMutation = trpc.ring.stopStream.useMutation();
 
 	const cleanup = useCallback(() => {
-		if (peerConnectionRef.current) {
-			peerConnectionRef.current.close();
-			peerConnectionRef.current = null;
+		if (hlsRef.current) {
+			hlsRef.current.destroy();
+			hlsRef.current = null;
 		}
 		if (videoRef.current) {
-			videoRef.current.srcObject = null;
+			videoRef.current.src = "";
 		}
 		isStreamingRef.current = false;
 	}, []);
 
 	const startStream = useCallback(
 		async (videoElement: HTMLVideoElement) => {
-			console.log("startStream called, isStreamingRef:", isStreamingRef.current);
-			
-			// Use ref to check if already streaming (avoids stale closure issue)
+			console.log(
+				"startStream called, isStreamingRef:",
+				isStreamingRef.current,
+			);
+
 			if (isStreamingRef.current) {
 				console.log("Already streaming, returning");
 				return;
@@ -41,99 +44,90 @@ export function useRingStream(deviceId: string) {
 			videoRef.current = videoElement;
 
 			try {
-				console.log("Creating RTCPeerConnection");
-				const pc = new RTCPeerConnection({
-					iceServers: [
-						{ urls: "stun:stun.l.google.com:19302" },
-						{ urls: "stun:stun1.l.google.com:19302" },
-					],
-				});
-				peerConnectionRef.current = pc;
-				console.log("RTCPeerConnection created");
+				console.log("Starting HLS stream...");
 
-				// Handle incoming tracks
-				pc.ontrack = (event) => {
-					console.log("ontrack event received", event.streams);
-					if (videoRef.current && event.streams[0]) {
-						videoRef.current.srcObject = event.streams[0];
-						videoRef.current.play().catch(console.error);
-						setState("streaming");
-					}
-				};
-
-				// Handle connection state changes
-				pc.onconnectionstatechange = () => {
-					console.log("Connection state changed:", pc.connectionState);
-					if (
-						pc.connectionState === "failed" ||
-						pc.connectionState === "disconnected"
-					) {
-						setState("error");
-						setError("Connection lost");
-						isStreamingRef.current = false;
-					}
-				};
-
-				console.log("Adding transceivers");
-				// Add transceivers for receiving audio and video
-				pc.addTransceiver("video", { direction: "recvonly" });
-				pc.addTransceiver("audio", { direction: "recvonly" });
-
-				console.log("Creating offer");
-				// Create offer
-				const offer = await pc.createOffer();
-				await pc.setLocalDescription(offer);
-				console.log("Local description set");
-
-				// Wait for ICE gathering to complete (or timeout)
-				console.log("Waiting for ICE gathering");
-				await new Promise<void>((resolve) => {
-					const timeout = setTimeout(() => {
-						console.log("ICE gathering timeout");
-						resolve();
-					}, 2000);
-					if (pc.iceGatheringState === "complete") {
-						console.log("ICE gathering already complete");
-						clearTimeout(timeout);
-						resolve();
-					} else {
-						pc.onicegatheringstatechange = () => {
-							console.log("ICE gathering state:", pc.iceGatheringState);
-							if (pc.iceGatheringState === "complete") {
-								clearTimeout(timeout);
-								resolve();
-							}
-						};
-					}
-				});
-
-				console.log("ICE gathering done, getting SDP");
-				// Send offer to server and get answer
-				const sdpOffer = pc.localDescription?.sdp;
-				if (!sdpOffer) {
-					throw new Error("Failed to create SDP offer");
-				}
-
-				console.log("Sending offer to server");
-				const result = await startStreamMutation.mutateAsync({
-					deviceId,
-					sdpOffer,
-				});
+				// Request HLS stream from server
+				const result = await startStreamMutation.mutateAsync({ deviceId });
 				console.log("Server response:", result);
 
-				if (!result.success || !result.sdpAnswer) {
+				if (!result.success || !result.streamUrl) {
 					throw new Error(result.error || "Failed to start stream");
 				}
 
 				sessionIdRef.current = result.sessionId ?? null;
 
-				console.log("Setting remote description");
-				// Set remote description
-				await pc.setRemoteDescription({
-					type: "answer",
-					sdp: result.sdpAnswer,
-				});
-				console.log("Remote description set, waiting for stream");
+				// Get auth token for stream requests
+				const token = localStorage.getItem("accessToken") || "";
+				const streamUrl = `${result.streamUrl}?token=${encodeURIComponent(token)}`;
+
+				console.log("HLS stream URL:", streamUrl);
+
+				// Wait for the stream to initialize and first segments to be ready
+				// HLS needs time for ffmpeg to start and create first segment
+				await new Promise((resolve) => setTimeout(resolve, 5000));
+
+				if (Hls.isSupported()) {
+					const hls = new Hls({
+						xhrSetup: (xhr) => {
+							// Set auth header for all requests
+							xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+						},
+						enableWorker: true,
+						lowLatencyMode: true,
+						backBufferLength: 30,
+						// Retry settings for initial load
+						manifestLoadingRetryDelay: 1000,
+						manifestLoadingMaxRetry: 6,
+						levelLoadingRetryDelay: 1000,
+						levelLoadingMaxRetry: 4,
+					});
+
+					hlsRef.current = hls;
+
+					hls.on(Hls.Events.MANIFEST_PARSED, () => {
+						console.log("HLS manifest parsed, starting playback");
+						videoElement.play().catch(console.error);
+						setState("streaming");
+					});
+
+					hls.on(Hls.Events.ERROR, (_event, data) => {
+						console.error("HLS error:", data);
+						if (data.fatal) {
+							switch (data.type) {
+								case Hls.ErrorTypes.NETWORK_ERROR:
+									console.log("Network error, trying to recover...");
+									hls.startLoad();
+									break;
+								case Hls.ErrorTypes.MEDIA_ERROR:
+									console.log("Media error, trying to recover...");
+									hls.recoverMediaError();
+									break;
+								default:
+									setState("error");
+									setError("Stream error: " + data.details);
+									isStreamingRef.current = false;
+									cleanup();
+									break;
+							}
+						}
+					});
+
+					hls.loadSource(streamUrl);
+					hls.attachMedia(videoElement);
+				} else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
+					// Native HLS support (Safari)
+					videoElement.src = streamUrl;
+					videoElement.addEventListener(
+						"loadedmetadata",
+						() => {
+							videoElement.play().catch(console.error);
+							setState("streaming");
+						},
+						{ once: true },
+					);
+				} else {
+					throw new Error("HLS not supported in this browser");
+				}
 			} catch (err) {
 				console.error("Failed to start stream:", err);
 				setState("error");
@@ -146,20 +140,16 @@ export function useRingStream(deviceId: string) {
 	);
 
 	const stopStream = useCallback(async () => {
-		const sessionId = sessionIdRef.current;
-
 		cleanup();
 		setState("idle");
 		setError(null);
 
-		if (sessionId) {
-			try {
-				await stopStreamMutation.mutateAsync({ deviceId, sessionId });
-			} catch (err) {
-				console.error("Failed to stop stream on server:", err);
-			}
-			sessionIdRef.current = null;
+		try {
+			await stopStreamMutation.mutateAsync({ deviceId });
+		} catch (err) {
+			console.error("Failed to stop stream on server:", err);
 		}
+		sessionIdRef.current = null;
 	}, [deviceId, stopStreamMutation, cleanup]);
 
 	return {

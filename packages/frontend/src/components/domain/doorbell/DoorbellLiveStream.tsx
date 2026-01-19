@@ -110,8 +110,8 @@ export function DoorbellLiveStream({ deviceId }: DoorbellLiveStreamProps) {
 
 			<p className="text-center text-gray-400 text-sm mt-2">
 				{isStreaming
-					? "Live WebRTC stream from your Ring device"
-					: "WebRTC live streaming - requires stable connection"}
+					? "Live HLS stream from your Ring device"
+					: "HLS live streaming - click to start"}
 			</p>
 		</div>
 	);

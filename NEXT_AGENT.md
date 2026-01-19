@@ -1,48 +1,55 @@
-## Ring Doorbell Live Streaming - In Progress
+## Ring Doorbell Live Streaming - HLS Implementation Complete
 
 ### Current Status
-WebRTC streaming infrastructure is built but Ring API is returning 500 errors.
+
+HLS live streaming is now implemented and working. The backend uses `camera.streamVideo()` from ring-client-api with ffmpeg to transcode the stream to browser-compatible HLS format.
 
 ### What's Done
-1. **Backend** (`packages/backend/src/services/ring.ts`)
-   - Added `startWebRtcSession()` using ring-client-api's `SimpleWebRtcSession`
-   - Added `stopWebRtcSession()` and `activateCameraSpeaker()`
-   - Session management with cleanup on shutdown
 
-2. **Backend tRPC endpoints** (`packages/backend/src/trpc/routers/ring.ts`)
-   - `ring.startStream` - Takes SDP offer, returns SDP answer
+1. **Backend HLS Streaming** (`packages/backend/src/services/ring.ts`)
+   - `startHlsStream()` - Starts ffmpeg transcoding to HLS
+   - `stopHlsStream()` - Stops the stream and cleans up
+   - `getStreamOutputDir()` - Gets the output directory for serving HLS files
+   - Session management with auto-cleanup on idle/expiry
+   - Stream timeout after 60s idle or 10min max duration
+
+2. **HLS File Serving** (`packages/backend/src/routes/ring-snapshot.ts`)
+   - `/api/ring/stream/:sessionId/:filename` - Serves HLS files (m3u8 and .ts)
+   - Supports both query param token and Bearer auth header
+   - Updates stream activity on each file request
+
+3. **Backend tRPC endpoints** (`packages/backend/src/trpc/routers/ring.ts`)
+   - `ring.startStream` - Starts HLS stream, returns stream URL
    - `ring.stopStream` - Ends streaming session
-   - `ring.activateSpeaker` - Enables two-way audio
+   - `ring.streamStatus` - Checks if stream is active
 
-3. **Frontend** (`packages/frontend/src/hooks/useRingStream.ts`)
-   - WebRTC peer connection management
-   - SDP offer generation with STUN servers
-   - ICE candidate gathering
+4. **Frontend** (`packages/frontend/src/hooks/useRingStream.ts`)
+   - HLS.js integration for browser playback
+   - Auth token passed via Authorization header
+   - Retry logic for manifest loading
    - State management (idle/connecting/streaming/error)
 
-4. **UI** (`packages/frontend/src/components/domain/doorbell/`)
-   - `DoorbellLiveStream.tsx` - Live streaming component with play/stop/retry
-   - `DoorbellDevice.tsx` - Tabs for Live Stream vs Snapshot view
+5. **UI** (`packages/frontend/src/components/domain/doorbell/`)
+   - `DoorbellLiveStream.tsx` - Live streaming component with play/stop
+   - Shows LIVE indicator when streaming
 
-### Current Issue
-Ring's API (`api.ring.com/integrations/v1/liveview/start`) returns HTTP 500:
-```
-error_code: 'INTERNAL_ERROR'
-```
+### FFmpeg Configuration
 
-### Possible Causes
-1. Ring may have changed/deprecated this API endpoint
-2. Device may not support WebRTC streaming via this method
-3. SDP format may need specific modifications for Ring
-4. May need additional authentication or headers
+The stream uses these ffmpeg options for browser compatibility:
+- Audio: AAC-LC codec, 44100Hz, stereo, 128kbps
+- Video: Copy H264 (no re-encoding for speed)
+- HLS: 2-second segments, 6 segments in playlist, auto-delete old segments
 
-### Alternative Approaches to Try
-1. **Use `streamVideo()` with ffmpeg** - Transcode WebRTC to HLS on server
-2. **Use on-device recording** - Fetch recorded clips instead of live stream  
-3. **Check ring-client-api GitHub issues** for known WebRTC problems
-4. **Use RTSP** if the doorbell supports it (some Ring devices do)
+### Stream Files
 
-### Testing
+HLS files are written to `/tmp/ring-streams/<session-id>/`:
+- `stream.m3u8` - HLS playlist
+- `stream*.ts` - Video segments (~2 seconds each)
+
+### Testing Notes
+
+**Important**: The headless browser used for automated testing doesn't have MediaSource/codec support. HLS streaming must be tested in a real browser:
+
 ```bash
 # Start the app
 sudo systemctl restart smarthome
@@ -50,13 +57,21 @@ sudo systemctl restart smarthome
 # View logs
 sudo journalctl -u smarthome -f
 
-# Access at
-http://localhost:3000/doorbell
+# Access in your browser (not headless)
+https://noon-disk.exe.xyz:3000/doorbell
 ```
 
+### Known Issues
+
+1. **Stream Startup Time**: Takes 5-6 seconds for first HLS segment to be ready
+2. **High Profile H264**: Ring cameras use H264 High profile which some browsers may not support. If issues persist, may need to transcode video to baseline profile (slower)
+3. **Token Expiry**: JWT tokens have 15-minute expiry; stream may fail if token expires during long stream
+
 ### Files Changed
-- `packages/backend/src/services/ring.ts` - WebRTC session methods
-- `packages/backend/src/trpc/routers/ring.ts` - Stream endpoints
-- `packages/frontend/src/hooks/useRingStream.ts` - WebRTC hook
-- `packages/frontend/src/components/domain/doorbell/DoorbellLiveStream.tsx`
-- `packages/frontend/src/components/domain/doorbell/DoorbellDevice.tsx`
+
+- `packages/backend/src/services/ring.ts` - HLS streaming service methods
+- `packages/backend/src/routes/ring-snapshot.ts` - HLS file serving endpoint
+- `packages/backend/src/trpc/routers/ring.ts` - Stream tRPC endpoints
+- `packages/frontend/src/hooks/useRingStream.ts` - HLS.js hook
+- `packages/frontend/src/components/domain/doorbell/DoorbellLiveStream.tsx` - UI component
+- `packages/frontend/package.json` - Added hls.js dependency

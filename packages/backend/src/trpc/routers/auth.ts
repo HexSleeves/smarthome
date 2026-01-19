@@ -72,7 +72,7 @@ export const authRouter = router({
 		}),
 
 	login: publicProcedure
-		.input(z.object({ email: z.string().email(), password: z.string() }))
+		.input(z.object({ email: z.email(), password: z.string() }))
 		.mutation(async ({ input, ctx }) => {
 			const user = userQueries.findByEmail.get(input.email);
 			if (!user || !(await argon2.verify(user.password_hash, input.password))) {

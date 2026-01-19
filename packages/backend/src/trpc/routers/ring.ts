@@ -26,7 +26,7 @@ export const ringRouter = router({
 	),
 
 	auth: adminProcedure
-		.input(z.object({ email: z.string().email(), password: z.string() }))
+		.input(z.object({ email: z.email(), password: z.string() }))
 		.mutation(
 			async ({ ctx, input }): Promise<RingAuthResponse> =>
 				ringService.authenticate(ctx.user.id, input.email, input.password),
@@ -80,19 +80,17 @@ export const ringRouter = router({
 			return { success: true };
 		}),
 
-	// WebRTC streaming endpoints
+	// HLS streaming endpoints
 	startStream: protectedProcedure
 		.input(
 			z.object({
 				deviceId: z.string(),
-				sdpOffer: z.string(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const result = await ringService.startWebRtcSession(
+			const result = await ringService.startHlsStream(
 				ctx.user.id,
 				input.deviceId,
-				input.sdpOffer,
 			);
 			if (!result) {
 				return { success: false, error: "Failed to start stream" };
@@ -100,7 +98,7 @@ export const ringRouter = router({
 			return {
 				success: true,
 				sessionId: result.sessionId,
-				sdpAnswer: result.sdpAnswer,
+				streamUrl: result.streamUrl,
 			};
 		}),
 
@@ -108,31 +106,24 @@ export const ringRouter = router({
 		.input(
 			z.object({
 				deviceId: z.string(),
-				sessionId: z.string(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const success = await ringService.stopWebRtcSession(
+			const success = await ringService.stopHlsStream(
 				ctx.user.id,
 				input.deviceId,
-				input.sessionId,
 			);
 			return { success };
 		}),
 
-	activateSpeaker: protectedProcedure
+	streamStatus: protectedProcedure
 		.input(
 			z.object({
 				deviceId: z.string(),
-				sessionId: z.string(),
 			}),
 		)
-		.mutation(async ({ ctx, input }) => {
-			const success = await ringService.activateCameraSpeaker(
-				ctx.user.id,
-				input.deviceId,
-				input.sessionId,
-			);
-			return { success };
+		.query(async ({ ctx, input }) => {
+			const isActive = ringService.isStreamActive(ctx.user.id, input.deviceId);
+			return { isActive };
 		}),
 });

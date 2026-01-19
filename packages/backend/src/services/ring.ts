@@ -1,5 +1,13 @@
 import { EventEmitter } from "node:events";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { type CameraEvent, RingApi, type RingCamera } from "ring-client-api";
+
+// Type for the streaming session returned by camera.streamVideo()
+interface StreamingSessionLike {
+	onCallEnded: { subscribe: (callback: () => void) => void };
+	stop: () => void;
+}
 import { config } from "../config.js";
 import {
 	createDevice,
@@ -35,20 +43,37 @@ interface Pending2FASession {
 
 const TWO_FA_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
-// SimpleWebRtcSession type from ring-client-api
-interface WebRtcSession {
+// HLS streaming session
+interface HlsStreamSession {
 	sessionId: string;
-	start(sdp: string): Promise<string>;
-	end(): Promise<unknown>;
-	activateCameraSpeaker(): Promise<void>;
+	streamingSession: StreamingSessionLike;
+	outputDir: string;
+	startedAt: number;
+	lastAccess: number;
 }
+
+// Base directory for HLS stream output
+const HLS_OUTPUT_BASE = "/tmp/ring-streams";
+const STREAM_IDLE_TIMEOUT = 60 * 1000; // Stop stream after 1 minute of no access
+const STREAM_MAX_DURATION = 10 * 60 * 1000; // Max 10 minutes per stream
 
 class RingService extends EventEmitter {
 	private readonly apiInstances = new Map<string, RingApi>();
 	private readonly cameras = new Map<string, RingCamera>();
 	private readonly deviceStates = new Map<string, RingDeviceState>();
 	private readonly pending2FA = new Map<string, Pending2FASession>();
-	private readonly activeSessions = new Map<string, WebRtcSession>();
+	private readonly hlsSessions = new Map<string, HlsStreamSession>();
+	private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+	constructor() {
+		super();
+		// Ensure output directory exists
+		if (!existsSync(HLS_OUTPUT_BASE)) {
+			mkdirSync(HLS_OUTPUT_BASE, { recursive: true });
+		}
+		// Start cleanup interval
+		this.cleanupInterval = setInterval(() => this.cleanupIdleStreams(), 10000);
+	}
 
 	async authenticate(
 		userId: string,
@@ -380,7 +405,10 @@ class RingService extends EventEmitter {
 			}
 		}
 
-		return () => unsubscribers.forEach((unsub) => unsub());
+		return () =>
+			unsubscribers.forEach((unsub) => {
+				unsub();
+			});
 	}
 
 	isConnected(userId: string): boolean {
@@ -406,94 +434,196 @@ class RingService extends EventEmitter {
 	}
 
 	/**
-	 * Start a WebRTC streaming session.
-	 * Takes an SDP offer from the browser and returns an SDP answer.
+	 * Start an HLS streaming session.
+	 * Returns session ID and the base URL for the HLS stream.
 	 */
-	async startWebRtcSession(
+	async startHlsStream(
 		userId: string,
 		deviceId: string,
-		sdpOffer: string,
-	): Promise<{ sessionId: string; sdpAnswer: string } | null> {
+	): Promise<{ sessionId: string; streamUrl: string } | null> {
 		const camera = this.cameras.get(`${userId}:${deviceId}`);
 		if (!camera) {
 			console.error(`Camera not found for user ${userId}, device ${deviceId}`);
 			return null;
 		}
 
+		// Check if there's already an active stream for this device
+		const existingKey = `${userId}:${deviceId}`;
+		const existingSession = this.hlsSessions.get(existingKey);
+		if (existingSession) {
+			// Update last access and return existing stream
+			existingSession.lastAccess = Date.now();
+			return {
+				sessionId: existingSession.sessionId,
+				streamUrl: `/api/ring/stream/${existingSession.sessionId}/stream.m3u8`,
+			};
+		}
+
 		try {
-			// Create a simple WebRTC session (designed for browser use)
-			const session = await camera.createSimpleWebRtcSession();
-			const sessionKey = `${userId}:${deviceId}:${session.sessionId}`;
+			const sessionId = `${deviceId}-${Date.now()}`;
+			const outputDir = join(HLS_OUTPUT_BASE, sessionId);
 
-			// Store the session for later cleanup
-			this.activeSessions.set(sessionKey, session);
+			// Create output directory
+			if (!existsSync(outputDir)) {
+				mkdirSync(outputDir, { recursive: true });
+			}
 
-			// Start the session with the browser's SDP offer and get the answer
-			const sdpAnswer = await session.start(sdpOffer);
+			console.log(
+				`Starting HLS stream for device ${deviceId}, output: ${outputDir}`,
+			);
 
-			return { sessionId: session.sessionId, sdpAnswer };
+			// Start the stream with HLS output
+			const streamingSession = await camera.streamVideo({
+				// Audio transcoding - convert to AAC-LC which is maximally browser compatible
+				audio: [
+					"-acodec",
+					"aac",
+					"-ac",
+					"2",
+					"-ar",
+					"44100",
+					"-b:a",
+					"128k",
+					"-profile:a",
+					"aac_low",
+				],
+				// Video - copy H264 directly (fast, but may have browser issues)
+				video: [
+					"-vcodec",
+					"copy",
+				],
+				output: [
+					"-f",
+					"hls",
+					"-hls_time",
+					"2",
+					"-hls_list_size",
+					"6",
+					"-hls_flags",
+					"delete_segments",
+					join(outputDir, "stream.m3u8"),
+				],
+			});
+
+			const session: HlsStreamSession = {
+				sessionId,
+				streamingSession,
+				outputDir,
+				startedAt: Date.now(),
+				lastAccess: Date.now(),
+			};
+
+			this.hlsSessions.set(existingKey, session);
+
+			// Handle stream end
+			streamingSession.onCallEnded.subscribe(() => {
+				console.log(`HLS stream ended for device ${deviceId}`);
+				this.cleanupHlsSession(existingKey);
+			});
+
+			return {
+				sessionId,
+				streamUrl: `/api/ring/stream/${sessionId}/stream.m3u8`,
+			};
 		} catch (error) {
-			console.error("Failed to start WebRTC session:", error);
+			console.error("Failed to start HLS stream:", error);
 			return null;
 		}
 	}
 
 	/**
-	 * Stop a WebRTC streaming session
+	 * Stop an HLS streaming session
 	 */
-	async stopWebRtcSession(
-		userId: string,
-		deviceId: string,
-		sessionId: string,
-	): Promise<boolean> {
-		const sessionKey = `${userId}:${deviceId}:${sessionId}`;
-		const session = this.activeSessions.get(sessionKey);
-
-		if (!session) {
-			return false;
-		}
-
-		try {
-			await session.end();
-			this.activeSessions.delete(sessionKey);
-			return true;
-		} catch (error) {
-			console.error("Failed to stop WebRTC session:", error);
-			this.activeSessions.delete(sessionKey);
-			return false;
-		}
+	async stopHlsStream(userId: string, deviceId: string): Promise<boolean> {
+		const sessionKey = `${userId}:${deviceId}`;
+		return this.cleanupHlsSession(sessionKey);
 	}
 
 	/**
-	 * Activate the camera speaker for two-way audio
+	 * Get the output directory for a stream session (for serving files)
 	 */
-	async activateCameraSpeaker(
-		userId: string,
-		deviceId: string,
-		sessionId: string,
-	): Promise<boolean> {
-		const sessionKey = `${userId}:${deviceId}:${sessionId}`;
-		const session = this.activeSessions.get(sessionKey);
+	getStreamOutputDir(sessionId: string): string | null {
+		for (const session of this.hlsSessions.values()) {
+			if (session.sessionId === sessionId) {
+				session.lastAccess = Date.now();
+				return session.outputDir;
+			}
+		}
+		return null;
+	}
 
+	/**
+	 * Check if a stream is active
+	 */
+	isStreamActive(userId: string, deviceId: string): boolean {
+		return this.hlsSessions.has(`${userId}:${deviceId}`);
+	}
+
+	/**
+	 * Update last access time for a stream (call when serving HLS files)
+	 */
+	touchStream(sessionId: string): void {
+		for (const session of this.hlsSessions.values()) {
+			if (session.sessionId === sessionId) {
+				session.lastAccess = Date.now();
+				return;
+			}
+		}
+	}
+
+	private cleanupHlsSession(sessionKey: string): boolean {
+		const session = this.hlsSessions.get(sessionKey);
 		if (!session) {
 			return false;
 		}
 
 		try {
-			await session.activateCameraSpeaker();
-			return true;
+			session.streamingSession.stop();
 		} catch (error) {
-			console.error("Failed to activate camera speaker:", error);
-			return false;
+			console.error("Error stopping streaming session:", error);
+		}
+
+		// Clean up output directory
+		try {
+			if (existsSync(session.outputDir)) {
+				rmSync(session.outputDir, { recursive: true, force: true });
+			}
+		} catch (error) {
+			console.error("Error cleaning up stream directory:", error);
+		}
+
+		this.hlsSessions.delete(sessionKey);
+		console.log(`Cleaned up HLS session: ${session.sessionId}`);
+		return true;
+	}
+
+	private cleanupIdleStreams(): void {
+		const now = Date.now();
+		for (const [key, session] of this.hlsSessions) {
+			const idleTime = now - session.lastAccess;
+			const totalTime = now - session.startedAt;
+
+			if (idleTime > STREAM_IDLE_TIMEOUT || totalTime > STREAM_MAX_DURATION) {
+				console.log(
+					`Cleaning up idle/expired stream: ${session.sessionId} (idle: ${idleTime}ms, total: ${totalTime}ms)`,
+				);
+				this.cleanupHlsSession(key);
+			}
 		}
 	}
 
 	shutdown(): void {
-		// End all active streaming sessions
-		for (const session of this.activeSessions.values()) {
-			session.end().catch(() => {});
+		// Stop cleanup interval
+		if (this.cleanupInterval) {
+			clearInterval(this.cleanupInterval);
+			this.cleanupInterval = null;
 		}
-		this.activeSessions.clear();
+
+		// End all active HLS streaming sessions
+		for (const key of this.hlsSessions.keys()) {
+			this.cleanupHlsSession(key);
+		}
+
 		this.apiInstances.clear();
 		this.cameras.clear();
 		this.deviceStates.clear();

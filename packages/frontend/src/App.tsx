@@ -1,13 +1,13 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { useEffect } from "react";
-import { useAuthStore } from "@/stores/auth";
-import { Layout } from "@/components/layout/AppShell";
-import { LoginPage } from "@/pages/Login";
-import { DashboardPage } from "@/pages/Dashboard";
-import { VacuumPage } from "@/pages/Vacuum";
-import { DoorbellPage } from "@/pages/Doorbell";
-import { SettingsPage } from "@/pages/Settings";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { Layout } from "@/components/layout/AppShell";
+import { DashboardPage } from "@/pages/Dashboard";
+import { DoorbellPage } from "@/pages/Doorbell";
+import { LoginPage } from "@/pages/Login";
+import { SettingsPage } from "@/pages/Settings";
+import { VacuumPage } from "@/pages/Vacuum";
+import { useAuthStore } from "@/stores/auth";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
 	const { isAuthenticated, isLoading } = useAuthStore();

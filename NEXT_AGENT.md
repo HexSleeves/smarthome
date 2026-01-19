@@ -36,6 +36,7 @@ HLS live streaming is now implemented and working. The backend uses `camera.stre
 ### FFmpeg Configuration
 
 The stream uses these ffmpeg options for browser compatibility:
+
 - Audio: AAC-LC codec, 44100Hz, stereo, 128kbps
 - Video: Copy H264 (no re-encoding for speed)
 - HLS: 2-second segments, 6 segments in playlist, auto-delete old segments
@@ -43,6 +44,7 @@ The stream uses these ffmpeg options for browser compatibility:
 ### Stream Files
 
 HLS files are written to `/tmp/ring-streams/<session-id>/`:
+
 - `stream.m3u8` - HLS playlist
 - `stream*.ts` - Video segments (~2 seconds each)
 

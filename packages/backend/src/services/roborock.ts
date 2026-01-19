@@ -468,7 +468,10 @@ class RoborockService extends EventEmitter {
 
 			const rrHomeId = homeData.data?.rrHomeId;
 			if (!rrHomeId) {
-				log.warn({ userId }, "No rrHomeId found - authentication may need to be refreshed");
+				log.warn(
+					{ userId },
+					"No rrHomeId found - authentication may need to be refreshed",
+				);
 				return;
 			}
 
@@ -485,16 +488,27 @@ class RoborockService extends EventEmitter {
 			);
 
 			// Try the devices endpoint anyway in case the API has changed
-			const devicesResponse = await fetch(`${baseURL}/api/v1/home/${rrHomeId}/devices`, {
-				headers: { Authorization: creds.token },
-			});
+			const devicesResponse = await fetch(
+				`${baseURL}/api/v1/home/${rrHomeId}/devices`,
+				{
+					headers: { Authorization: creds.token },
+				},
+			);
 			const devicesData = await devicesResponse.json();
 			log.info(
-				{ status: devicesResponse.status, code: devicesData.code, msg: devicesData.msg },
+				{
+					status: devicesResponse.status,
+					code: devicesData.code,
+					msg: devicesData.msg,
+				},
 				"Roborock devices endpoint response",
 			);
 
-			const devices = devicesData.result?.devices || devicesData.data?.devices || devicesData.data || [];
+			const devices =
+				devicesData.result?.devices ||
+				devicesData.data?.devices ||
+				devicesData.data ||
+				[];
 
 			for (const device of devices) {
 				const key = `${userId}:${device.duid}`;

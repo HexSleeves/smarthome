@@ -1,114 +1,126 @@
 # Smart Home Dashboard
 
-A unified web dashboard for controlling Roborock vacuum and Ring doorbell devices.
+A unified, modern web dashboard for controlling **Roborock** vacuums and **Ring** doorbells/cameras. Built with performance and user experience in mind, featuring a reactive UI, real-time updates, and low-latency video streaming.
 
-## Features
+## ✨ Features
 
-- **Unified Dashboard**: View all connected devices in one place
-- **Roborock Vacuum Control**:
-  - Start, stop, pause, and dock commands
-  - Fan speed and water level adjustment
-  - Battery and cleaning status
-  - Real-time status updates
-- **Ring Doorbell**:
-  - Live camera snapshots
-  - Motion and doorbell event notifications
-  - Event history
-  - Light and siren controls
-- **User Management**:
-  - Secure JWT authentication
-  - Role-based access (admin/viewer)
-  - Encrypted device credentials
+### 🧹 Roborock Integration
 
-## Tech Stack
+Direct integration with Roborock Cloud API (no cloud-free rooting required).
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, React Query
-- **Backend**: Node.js, Fastify, SQLite, WebSocket
-- **Device APIs**: ring-client-api (unofficial), Roborock Cloud API
+- **Full Control**: Start, stop, pause, return to dock, and "find my robot".
+- **Customization**: Adjust fan speed (Quiet/Balanced/Turbo/Max) and water level (Off/Low/Medium/High).
+- **Real-time Status**: Live monitoring of battery level, cleaning area, duration, and error states.
+- **Smart Auth**: Supports 2FA login flows directly from the dashboard.
 
-## Quick Start
+### 🔔 Ring Integration
+
+- **Live Streaming**: **HLS-based low-latency video streaming** for supported cameras.
+- **Snapshots**: High-quality camera snapshots on demand.
+- **Events**: Real-time notifications for motion and doorbell presses.
+- **Controls**: Toggle lights and siren (if supported).
+- **History**: View recent event history.
+
+### 💻 Dashboard Experience
+
+- **Unified View**: See all your devices in one responsive grid.
+- **Dark Mode**: System-aware light/dark mode toggle.
+- **Responsive**: Fully optimized for desktop and mobile devices.
+- **Secure**: JWT-based authentication with role-based access control (Admin/Viewer).
+
+## 🛠️ Tech Stack
+
+This project is a **monorepo** managed with **Bun** workspaces.
+
+### Frontend (`packages/frontend`)
+
+- **Framework**: [React 19](https://react.dev/) with [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) & [shadcn/ui](https://ui.shadcn.com/)
+- **State/Data**: [TanStack Query](https://tanstack.com/query) & [Zustand](https://github.com/pmndrs/zustand)
+- **API Client**: [tRPC](https://trpc.io/) (End-to-end type safety)
+- **Video**: [hls.js](https://github.com/video-dev/hls.js) for streaming
+
+### Backend (`packages/backend`)
+
+- **Server**: [Fastify](https://fastify.dev/) (Node.js)
+- **Database**: SQLite ([better-sqlite3](https://github.com/WiseLibs/better-sqlite3))
+- **API**: [tRPC](https://trpc.io/) & WebSocket
+- **Device APIs**:
+  - `ring-client-api` for Ring
+  - Custom implementation for Roborock Cloud API
+- **Video Processing**: `ffmpeg` for HLS transcoding
+
+### Tooling
+
+- **Package Manager**: [Bun](https://bun.sh/)
+- **Linter/Formatter**: [Biome](https://biomejs.dev/)
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Node.js** (v20+) & **Bun** (v1.0+)
+- **FFmpeg** (Required for Ring live streaming)
+
+### Installation
+
+1. **Clone and Install**
+
+   ```bash
+   git clone <repo-url>
+   cd smarthome
+   bun install
+   ```
+
+2. **Environment Setup**
+   Copy the example environment file to the backend package:
+
+   ```bash
+   cp .env.example packages/backend/.env
+   ```
+
+   Edit `packages/backend/.env` with your secrets and preferences.
+
+3. **Start Development**
+
+   ```bash
+   # Starts both backend and frontend in development mode
+   npm run dev
+   ```
+
+   - Frontend: `http://localhost:5173`
+   - Backend: `http://localhost:8000`
+
+### Production
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development servers
-npm run dev
-
-# Or start production build
+# Build both packages
 npm run build
+
+# Start the production backend (serves frontend static files if configured)
 npm start
 ```
 
-## Environment Variables
+## 📜 Scripts
 
-Copy `.env.example` to `packages/backend/.env` and configure:
+Helper scripts are located in the `scripts/` directory for managing the application service:
 
-```
-PORT=8000
-JWT_SECRET=your-secret-key
-ENCRYPTION_SECRET=your-encryption-key
-```
+- `./scripts/start.sh`: Start the application
+- `./scripts/stop.sh`: Stop the application
+- `./scripts/restart.sh`: Restart
+- `./scripts/logs.sh`: View application logs
+- `./scripts/status.sh`: Check service status
 
-## API Endpoints
+## 🚧 Status & Roadmap
 
-### Authentication
+This project is in active development.
 
-- `POST /api/auth/register` - Create account
-- `POST /api/auth/login` - Login
-- `POST /api/auth/refresh` - Refresh token
-- `GET /api/auth/me` - Get current user
+- ✅ **Core Features**: Auth, Device Listing, Basic Controls, HLS Streaming.
+- 🚧 **In Progress**: Production hardening, Secret rotation.
+- 🔮 **Planned**: Roborock map visualization, Vacuum scheduling.
 
-### Devices
+See [IMPROVEMENTS.md](./IMPROVEMENTS.md) for a detailed to-do list and [NEXT_AGENT.md](./NEXT_AGENT.md) for recent architectural updates.
 
-- `GET /api/devices` - List all devices
-- `GET /api/devices/:id` - Get device details
-- `GET /api/devices/:id/events` - Get device events
-
-### Roborock
-
-- `GET /api/roborock/status` - Connection status
-- `POST /api/roborock/auth` - Authenticate
-- `GET /api/roborock/devices` - List vacuums
-- `POST /api/roborock/devices/:id/command` - Send command
-
-### Ring
-
-- `GET /api/ring/status` - Connection status
-- `POST /api/ring/auth` - Authenticate (supports 2FA)
-- `GET /api/ring/devices` - List cameras
-- `GET /api/ring/devices/:id/snapshot` - Get camera snapshot
-
-### WebSocket
-
-- `WS /api/ws/events?token=JWT` - Real-time events
-
-## Architecture
-
-```
-┌────────────────┐     ┌────────────────┐     ┌────────────────┐
-│    Browser     │◄────►│    Backend     │◄────►│  Cloud APIs    │
-│  (React SPA)   │     │   (Fastify)    │     │  Roborock/Ring │
-└────────────────┘     └────────────────┘     └────────────────┘
-        │                    │
-        │    WebSocket       │
-        └────────────────────┘
-```
-
-## Security Notes
-
-- Device credentials are encrypted at rest using AES-256-GCM
-- JWT tokens expire after 15 minutes
-- Refresh tokens expire after 7 days
-- Admin role required for device commands
-- All API calls require authentication
-
-## Limitations
-
-- Ring live video streaming requires WebRTC/SIP setup (snapshots provided as fallback)
-- Roborock map visualization not implemented (API complexity)
-- Unofficial APIs may change without notice
-
-## License
+## 📄 License
 
 MIT

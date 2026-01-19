@@ -3,7 +3,13 @@ import { Eye, EyeOff, Home } from "lucide-react";
 import { useState } from "react";
 import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -52,7 +58,9 @@ export function LoginPage() {
 				{/* Form */}
 				<Card>
 					<CardHeader className="text-center">
-						<CardTitle>{isRegister ? "Create Account" : "Welcome Back"}</CardTitle>
+						<CardTitle>
+							{isRegister ? "Create Account" : "Welcome Back"}
+						</CardTitle>
 						<CardDescription>
 							{isRegister
 								? "Enter your details to create an account"
@@ -117,11 +125,12 @@ export function LoginPage() {
 											placeholder="you@example.com"
 											required
 										/>
-										{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
-											<p className="text-sm text-destructive">
-												{field.state.meta.errors.join(", ")}
-											</p>
-										)}
+										{field.state.meta.isTouched &&
+											field.state.meta.errors.length > 0 && (
+												<p className="text-sm text-destructive">
+													{field.state.meta.errors.join(", ")}
+												</p>
+											)}
 									</div>
 								)}
 							</form.Field>
@@ -167,11 +176,12 @@ export function LoginPage() {
 												)}
 											</Button>
 										</div>
-										{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
-											<p className="text-sm text-destructive">
-												{field.state.meta.errors.join(", ")}
-											</p>
-										)}
+										{field.state.meta.isTouched &&
+											field.state.meta.errors.length > 0 && (
+												<p className="text-sm text-destructive">
+													{field.state.meta.errors.join(", ")}
+												</p>
+											)}
 									</div>
 								)}
 							</form.Field>

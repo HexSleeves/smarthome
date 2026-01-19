@@ -30,7 +30,7 @@ export function DoorbellHistory({ deviceId }: DoorbellHistoryProps) {
 						<span
 							className={cn(
 								"w-2 h-2 rounded-full",
-								event.kind === "ding" ? "bg-yellow-500" : "bg-blue-500"
+								event.kind === "ding" ? "bg-yellow-500" : "bg-blue-500",
 							)}
 						/>
 						<div className="flex-1">

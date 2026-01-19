@@ -1,10 +1,10 @@
 import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type RingAuthFormProps = {
 	onSubmit: (email: string, password: string) => Promise<void>;
@@ -71,11 +71,12 @@ export function RingAuthForm({
 							placeholder="your@email.com"
 							required
 						/>
-						{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
-							<p className="text-sm text-destructive">
-								{field.state.meta.errors.join(", ")}
-							</p>
-						)}
+						{field.state.meta.isTouched &&
+							field.state.meta.errors.length > 0 && (
+								<p className="text-sm text-destructive">
+									{field.state.meta.errors.join(", ")}
+								</p>
+							)}
 					</div>
 				)}
 			/>
@@ -115,11 +116,12 @@ export function RingAuthForm({
 								)}
 							</Button>
 						</div>
-						{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
-							<p className="text-sm text-destructive">
-								{field.state.meta.errors.join(", ")}
-							</p>
-						)}
+						{field.state.meta.isTouched &&
+							field.state.meta.errors.length > 0 && (
+								<p className="text-sm text-destructive">
+									{field.state.meta.errors.join(", ")}
+								</p>
+							)}
 					</div>
 				)}
 			/>

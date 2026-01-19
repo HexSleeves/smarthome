@@ -39,7 +39,8 @@ export function VacuumWaterLevel({
 						onClick={() => setWaterLevel(level.value)}
 						disabled={!isAdmin || isPending}
 						className={cn(
-							currentLevel === level.value && "ring-2 ring-primary ring-offset-2"
+							currentLevel === level.value &&
+								"ring-2 ring-primary ring-offset-2",
 						)}
 					>
 						{level.label}

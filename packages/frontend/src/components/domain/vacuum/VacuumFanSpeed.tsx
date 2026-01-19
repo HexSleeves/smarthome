@@ -39,7 +39,8 @@ export function VacuumFanSpeed({
 						onClick={() => setFanSpeed(speed.value)}
 						disabled={!isAdmin || isPending}
 						className={cn(
-							currentSpeed === speed.value && "ring-2 ring-primary ring-offset-2"
+							currentSpeed === speed.value &&
+								"ring-2 ring-primary ring-offset-2",
 						)}
 					>
 						{speed.icon} {speed.label}

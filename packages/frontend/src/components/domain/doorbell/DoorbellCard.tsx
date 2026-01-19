@@ -13,7 +13,12 @@ export function DoorbellCard({ doorbell }: DoorbellCardProps) {
 
 	return (
 		<div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
-			<span className={cn("w-3 h-3 rounded-full", isOnline ? "bg-green-500" : "bg-gray-400")} />
+			<span
+				className={cn(
+					"w-3 h-3 rounded-full",
+					isOnline ? "bg-green-500" : "bg-gray-400",
+				)}
+			/>
 			<div className="flex-1">
 				<p className="font-medium">{doorbell.name}</p>
 				<Badge variant={isOnline ? "success" : "secondary"} className="mt-1">

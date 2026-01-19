@@ -11,6 +11,7 @@ export * from "./sheet";
 export * from "./skeleton";
 export * from "./tabs";
 export * from "./tooltip";
+export * from "./theme-toggle";
 
 // Custom components
 export * from "./EmptyState";

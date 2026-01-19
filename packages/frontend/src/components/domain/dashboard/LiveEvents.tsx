@@ -21,23 +21,25 @@ export function LiveEvents() {
 							key={event.deviceId}
 							className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
 						>
-							<Badge 
+							<Badge
 								variant={
-									event.type === "doorbell" 
-										? "warning" 
-										: event.type === "motion" 
-											? "info" 
+									event.type === "doorbell"
+										? "warning"
+										: event.type === "motion"
+											? "info"
 											: "success"
 								}
 								className="gap-1"
 							>
-								<span className={`w-2 h-2 rounded-full ${
-									event.type === "doorbell"
-										? "bg-yellow-500"
-										: event.type === "motion"
-											? "bg-blue-500"
-											: "bg-green-500"
-								}`} />
+								<span
+									className={`w-2 h-2 rounded-full ${
+										event.type === "doorbell"
+											? "bg-yellow-500"
+											: event.type === "motion"
+												? "bg-blue-500"
+												: "bg-green-500"
+									}`}
+								/>
 							</Badge>
 							<span className="flex-1 text-sm">
 								{event.type === "doorbell"

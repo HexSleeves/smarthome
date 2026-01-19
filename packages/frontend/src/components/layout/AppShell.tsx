@@ -1,4 +1,5 @@
 import { Bell, Home, LogOut, Menu, Settings, Wifi } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/auth";
@@ -158,10 +159,11 @@ export function Layout() {
 						>
 							<Menu className="w-6 h-6" />
 						</Button>
-						<h1 className="text-lg font-semibold ml-2 lg:ml-0">
+						<h1 className="text-lg font-semibold ml-2 lg:ml-0 flex-1">
 							{navigation.find((n) => n.href === location.pathname)?.name ||
 								"Smart Home"}
 						</h1>
+						<ThemeToggle />
 					</header>
 
 					{/* Page content */}

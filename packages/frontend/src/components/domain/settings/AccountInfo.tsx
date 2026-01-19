@@ -26,7 +26,10 @@ export function AccountInfo() {
 				<div>
 					<label className="text-sm text-muted-foreground">Role</label>
 					<div className="mt-1">
-						<Badge variant={user?.role === "admin" ? "default" : "secondary"} className="capitalize">
+						<Badge
+							variant={user?.role === "admin" ? "default" : "secondary"}
+							className="capitalize"
+						>
 							{user?.role}
 						</Badge>
 					</div>

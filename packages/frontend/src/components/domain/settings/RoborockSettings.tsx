@@ -9,13 +9,13 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useState } from "react";
-import { useRoborockAuth, useRoborockStatus } from "@/hooks";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useRoborockAuth, useRoborockStatus } from "@/hooks";
 
 type AuthStep = "credentials" | "2fa";
 
@@ -171,8 +171,8 @@ export function RoborockSettings() {
 							<AlertTitle>Verification Required</AlertTitle>
 							<AlertDescription>
 								A verification code has been sent to{" "}
-								<span className="font-medium">{pendingEmail}</span>. Please enter it
-								below.
+								<span className="font-medium">{pendingEmail}</span>. Please
+								enter it below.
 							</AlertDescription>
 						</Alert>
 
@@ -260,11 +260,12 @@ export function RoborockSettings() {
 										placeholder="your@email.com"
 										required
 									/>
-									{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
-										<p className="text-sm text-destructive">
-											{field.state.meta.errors.join(", ")}
-										</p>
-									)}
+									{field.state.meta.isTouched &&
+										field.state.meta.errors.length > 0 && (
+											<p className="text-sm text-destructive">
+												{field.state.meta.errors.join(", ")}
+											</p>
+										)}
 								</div>
 							)}
 						/>
@@ -304,11 +305,12 @@ export function RoborockSettings() {
 											)}
 										</Button>
 									</div>
-									{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
-										<p className="text-sm text-destructive">
-											{field.state.meta.errors.join(", ")}
-										</p>
-									)}
+									{field.state.meta.isTouched &&
+										field.state.meta.errors.length > 0 && (
+											<p className="text-sm text-destructive">
+												{field.state.meta.errors.join(", ")}
+											</p>
+										)}
 								</div>
 							)}
 						/>

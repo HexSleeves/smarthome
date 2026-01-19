@@ -79,11 +79,12 @@ export function Ring2FAForm({
 							autoFocus
 							required
 						/>
-						{field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
-							<p className="text-sm text-destructive">
-								{field.state.meta.errors.join(", ")}
-							</p>
-						)}
+						{field.state.meta.isTouched &&
+							field.state.meta.errors.length > 0 && (
+								<p className="text-sm text-destructive">
+									{field.state.meta.errors.join(", ")}
+								</p>
+							)}
 					</div>
 				)}
 			/>

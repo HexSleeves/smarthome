@@ -32,11 +32,18 @@ export function DoorbellDevice({ device, isAdmin }: DoorbellDeviceProps) {
 					</div>
 					<div className="flex-1">
 						<h2 className="text-xl font-semibold">{device.name}</h2>
-						<p className="text-sm text-muted-foreground capitalize">{device.type}</p>
+						<p className="text-sm text-muted-foreground capitalize">
+							{device.type}
+						</p>
 					</div>
 					<div className="text-right">
-						<Badge variant={device.status === "online" ? "success" : "secondary"} className="gap-1.5">
-							<span className={`w-2 h-2 rounded-full ${device.status === "online" ? "bg-green-500" : "bg-gray-400"}`} />
+						<Badge
+							variant={device.status === "online" ? "success" : "secondary"}
+							className="gap-1.5"
+						>
+							<span
+								className={`w-2 h-2 rounded-full ${device.status === "online" ? "bg-green-500" : "bg-gray-400"}`}
+							/>
 							{device.status}
 						</Badge>
 						{device.battery !== null && (
@@ -53,7 +60,11 @@ export function DoorbellDevice({ device, isAdmin }: DoorbellDeviceProps) {
 			<DoorbellNotifications deviceId={device.id} />
 
 			{/* View Mode Toggle */}
-			<Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "live" | "snapshot")} className="px-6">
+			<Tabs
+				value={viewMode}
+				onValueChange={(v) => setViewMode(v as "live" | "snapshot")}
+				className="px-6"
+			>
 				<TabsList className="grid w-full grid-cols-2">
 					<TabsTrigger value="live">Live Stream</TabsTrigger>
 					<TabsTrigger value="snapshot">Snapshot</TabsTrigger>

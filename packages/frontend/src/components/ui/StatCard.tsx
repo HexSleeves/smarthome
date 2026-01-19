@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "./card";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "./card";
 
 type StatusType = "success" | "warning" | "error" | "neutral";
 

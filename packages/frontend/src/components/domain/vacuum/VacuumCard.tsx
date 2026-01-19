@@ -3,7 +3,13 @@ import type { Device, RoborockDeviceState } from "@smarthome/shared";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-const statusConfig: Record<string, { variant: "success" | "warning" | "destructive" | "secondary" | "info"; dot: string }> = {
+const statusConfig: Record<
+	string,
+	{
+		variant: "success" | "warning" | "destructive" | "secondary" | "info";
+		dot: string;
+	}
+> = {
 	idle: { variant: "secondary", dot: "bg-gray-500" },
 	cleaning: { variant: "success", dot: "bg-green-500" },
 	returning: { variant: "info", dot: "bg-blue-500" },

@@ -160,9 +160,7 @@ function ConnectedState({
 }) {
 	return (
 		<div className="space-y-4">
-			<p className="text-muted-foreground">
-				Your Ring account is connected.
-			</p>
+			<p className="text-muted-foreground">Your Ring account is connected.</p>
 			<Button
 				variant="secondary"
 				onClick={onDisconnect}

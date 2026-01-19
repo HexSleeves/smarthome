@@ -1,7 +1,7 @@
 import type { AnyFieldApi } from "@tanstack/react-form";
+import { cn } from "@/lib/utils";
 import { Input } from "./input";
 import { Label } from "./label";
-import { cn } from "@/lib/utils";
 
 type FormFieldProps = {
 	field: AnyFieldApi;

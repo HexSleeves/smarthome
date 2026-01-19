@@ -29,6 +29,13 @@ export function RingAuthForm({
 		},
 	});
 
+	const onEmailChange = ({ value }: {value: string}) => {
+		if (!value) return "Email is required";
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+			return "Invalid email format";
+		return undefined;
+	};
+
 	return (
 		<form
 			onSubmit={(e) => {
@@ -41,24 +48,18 @@ export function RingAuthForm({
 			<p className="text-muted-foreground">
 				Enter your Ring account credentials.
 			</p>
-
 			{error && (
 				<Alert variant="destructive">
 					<AlertDescription>{error}</AlertDescription>
 				</Alert>
 			)}
-
 			<form.Field
 				name="email"
 				validators={{
-					onChange: ({ value }) =>
-						!value
-							? "Email is required"
-							: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-								? "Invalid email format"
-								: undefined,
+					onChange: onEmailChange,
 				}}
-				children={(field) => (
+			>
+				{(field) => (
 					<div className="space-y-2">
 						<Label htmlFor={field.name}>Email</Label>
 						<Input
@@ -79,15 +80,15 @@ export function RingAuthForm({
 							)}
 					</div>
 				)}
-			/>
-
+			</form.Field>
 			<form.Field
 				name="password"
 				validators={{
 					onChange: ({ value }) =>
 						!value ? "Password is required" : undefined,
 				}}
-				children={(field) => (
+			>
+				{(field) => (
 					<div className="space-y-2">
 						<Label htmlFor={field.name}>Password</Label>
 						<div className="relative">
@@ -124,16 +125,16 @@ export function RingAuthForm({
 							)}
 					</div>
 				)}
-			/>
-
+			</form.Field>
 			<form.Subscribe
 				selector={(state) => [state.canSubmit, state.isSubmitting]}
-				children={([canSubmit]) => (
+			>
+				{([canSubmit]) => (
 					<Button type="submit" disabled={!canSubmit || isSubmitting}>
 						{isSubmitting ? "Connecting..." : "Connect Ring"}
 					</Button>
 				)}
-			/>
+			</form.Subscribe>
 		</form>
 	);
 }

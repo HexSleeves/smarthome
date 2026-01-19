@@ -22,11 +22,11 @@ export const useThemeStore = create<ThemeStore>()(
 
 // Apply theme to document
 export function applyTheme(theme: Theme) {
-	const root = window.document.documentElement;
+	const root = globalThis.document.documentElement;
 	root.classList.remove("light", "dark");
 
 	if (theme === "system") {
-		const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+		const systemTheme = globalThis.matchMedia("(prefers-color-scheme: dark)")
 			.matches
 			? "dark"
 			: "light";

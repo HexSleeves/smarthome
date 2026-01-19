@@ -1,7 +1,8 @@
 import { Shield } from "lucide-react";
-import { useAuthStore } from "@/stores/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { useAuthStore } from "@/stores/auth";
 
 export function AccountInfo() {
 	const { user } = useAuthStore();
@@ -16,15 +17,15 @@ export function AccountInfo() {
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<div>
-					<label className="text-sm text-muted-foreground">Email</label>
+					<Label className="text-sm text-muted-foreground">Email</Label>
 					<p className="font-medium">{user?.email}</p>
 				</div>
 				<div>
-					<label className="text-sm text-muted-foreground">Name</label>
+					<Label className="text-sm text-muted-foreground">Name</Label>
 					<p className="font-medium">{user?.name || "Not set"}</p>
 				</div>
 				<div>
-					<label className="text-sm text-muted-foreground">Role</label>
+					<Label className="text-sm text-muted-foreground">Role</Label>
 					<div className="mt-1">
 						<Badge
 							variant={user?.role === "admin" ? "default" : "secondary"}

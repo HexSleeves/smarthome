@@ -1,6 +1,6 @@
-import { useRealtimeEvents } from "@/hooks";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRealtimeEvents } from "@/hooks";
 
 export function LiveEvents() {
 	const { events } = useRealtimeEvents(5);

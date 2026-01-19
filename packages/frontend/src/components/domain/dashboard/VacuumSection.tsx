@@ -2,13 +2,42 @@ import { Wifi } from "lucide-react";
 import { Link } from "react-router-dom";
 import { VacuumCard } from "@/components/domain/vacuum";
 import { EmptyState } from "@/components/ui";
-import { useDevicesByType, useRoborockStatus } from "@/hooks";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDevicesByType, useRoborockStatus } from "@/hooks";
 
 export function VacuumSection() {
 	const { connected, hasCredentials } = useRoborockStatus();
 	const { devices: vacuums } = useDevicesByType("roborock");
+
+	const renderContent = () => {
+		if (!connected && !hasCredentials) {
+			return (
+				<EmptyState
+					icon={Wifi}
+					title="No vacuum connected"
+					actionLabel="Connect your Roborock"
+					actionLink="/settings"
+				/>
+			);
+		}
+
+		if (vacuums.length > 0) {
+			return (
+				<div className="space-y-3">
+					{vacuums.map((vacuum) => (
+						<VacuumCard key={vacuum.id} vacuum={vacuum} />
+					))}
+				</div>
+			);
+		}
+
+		return (
+			<div className="text-center py-8 text-muted-foreground">
+				<p>Connecting to vacuum...</p>
+			</div>
+		);
+	};
 
 	return (
 		<Card>
@@ -21,26 +50,7 @@ export function VacuumSection() {
 					<Link to="/vacuum">View All →</Link>
 				</Button>
 			</CardHeader>
-			<CardContent>
-				{!connected && !hasCredentials ? (
-					<EmptyState
-						icon={Wifi}
-						title="No vacuum connected"
-						actionLabel="Connect your Roborock"
-						actionLink="/settings"
-					/>
-				) : vacuums.length > 0 ? (
-					<div className="space-y-3">
-						{vacuums.map((vacuum) => (
-							<VacuumCard key={vacuum.id} vacuum={vacuum} />
-						))}
-					</div>
-				) : (
-					<div className="text-center py-8 text-muted-foreground">
-						<p>Connecting to vacuum...</p>
-					</div>
-				)}
-			</CardContent>
+			<CardContent>{renderContent()}</CardContent>
 		</Card>
 	);
 }

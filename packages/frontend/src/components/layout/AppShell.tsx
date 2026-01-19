@@ -1,11 +1,8 @@
 import { Bell, Home, LogOut, Menu, Settings, Wifi } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { useAuthStore } from "@/stores/auth";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
 	Sheet,
@@ -13,12 +10,15 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth";
 
 const navigation = [
 	{ name: "Dashboard", href: "/", icon: Home },

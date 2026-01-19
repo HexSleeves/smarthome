@@ -1,12 +1,12 @@
 import { Bell, CheckCircle, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRingAuth, useRingStatus } from "@/hooks";
 import { Ring2FAForm } from "./Ring2FAForm";
 import { RingAuthForm } from "./RingAuthForm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function RingSettings() {
 	const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);

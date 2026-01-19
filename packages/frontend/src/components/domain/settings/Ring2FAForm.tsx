@@ -1,8 +1,8 @@
 import { useForm } from "@tanstack/react-form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type Ring2FAFormProps = {
 	prompt: string;
@@ -44,24 +44,23 @@ export function Ring2FAForm({
 				<AlertTitle>2FA Code Required</AlertTitle>
 				<AlertDescription>{prompt}</AlertDescription>
 			</Alert>
-
 			{error && (
 				<Alert variant="destructive">
 					<AlertDescription>{error}</AlertDescription>
 				</Alert>
 			)}
-
 			<form.Field
 				name="code"
 				validators={{
 					onChange: ({ value }) => {
-						const cleaned = value.replace(/\D/g, "");
+						const cleaned = String(value).replaceAll(/\D/g, "");
 						if (!cleaned) return "Code is required";
 						if (cleaned.length < 4) return "Code must be at least 4 digits";
 						return undefined;
 					},
 				}}
-				children={(field) => (
+			>
+				{(field) => (
 					<div className="space-y-2">
 						<Label htmlFor={field.name}>Verification Code</Label>
 						<Input
@@ -71,7 +70,7 @@ export function Ring2FAForm({
 							value={field.state.value}
 							onBlur={field.handleBlur}
 							onChange={(e) =>
-								field.handleChange(e.target.value.replace(/\D/g, ""))
+								field.handleChange(e.target.value.replaceAll(/\D/g, ""))
 							}
 							className="text-center text-2xl tracking-widest"
 							placeholder="000000"
@@ -87,11 +86,11 @@ export function Ring2FAForm({
 							)}
 					</div>
 				)}
-			/>
-
+			</form.Field>
 			<form.Subscribe
 				selector={(state) => [state.canSubmit, state.values.code]}
-				children={([canSubmit, code]) => (
+			>
+				{([canSubmit, code]) => (
 					<div className="flex gap-2">
 						<Button
 							type="submit"
@@ -112,7 +111,7 @@ export function Ring2FAForm({
 						</Button>
 					</div>
 				)}
-			/>
+			</form.Subscribe>
 		</form>
 	);
 }

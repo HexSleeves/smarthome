@@ -1,6 +1,6 @@
 import { Clock } from "lucide-react";
-import { useRecentEvents } from "@/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRecentEvents } from "@/hooks";
 
 export function RecentActivity() {
 	const { events } = useRecentEvents(10);

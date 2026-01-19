@@ -2,13 +2,42 @@ import { Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 import { DoorbellCard } from "@/components/domain/doorbell";
 import { EmptyState } from "@/components/ui";
-import { useDevicesByType, useRingStatus } from "@/hooks";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDevicesByType, useRingStatus } from "@/hooks";
 
 export function DoorbellSection() {
 	const { connected, hasCredentials } = useRingStatus();
 	const { devices: doorbells } = useDevicesByType("ring");
+
+	const renderContent = () => {
+		if (!connected && !hasCredentials) {
+			return (
+				<EmptyState
+					icon={Bell}
+					title="No doorbell connected"
+					actionLabel="Connect your Ring"
+					actionLink="/settings"
+				/>
+			);
+		}
+
+		if (doorbells.length > 0) {
+			return (
+				<div className="space-y-3">
+					{doorbells.map((doorbell) => (
+						<DoorbellCard key={doorbell.id} doorbell={doorbell} />
+					))}
+				</div>
+			);
+		}
+
+		return (
+			<div className="text-center py-8 text-muted-foreground">
+				<p>Connecting to doorbell...</p>
+			</div>
+		);
+	};
 
 	return (
 		<Card>
@@ -21,26 +50,7 @@ export function DoorbellSection() {
 					<Link to="/doorbell">View All →</Link>
 				</Button>
 			</CardHeader>
-			<CardContent>
-				{!connected && !hasCredentials ? (
-					<EmptyState
-						icon={Bell}
-						title="No doorbell connected"
-						actionLabel="Connect your Ring"
-						actionLink="/settings"
-					/>
-				) : doorbells.length > 0 ? (
-					<div className="space-y-3">
-						{doorbells.map((doorbell) => (
-							<DoorbellCard key={doorbell.id} doorbell={doorbell} />
-						))}
-					</div>
-				) : (
-					<div className="text-center py-8 text-muted-foreground">
-						<p>Connecting to doorbell...</p>
-					</div>
-				)}
-			</CardContent>
+			<CardContent>{renderContent()}</CardContent>
 		</Card>
 	);
 }

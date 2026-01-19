@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff, Home } from "lucide-react";
 import { useState } from "react";
-import { useAuthStore } from "@/stores/auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuthStore } from "@/stores/auth";
 
 export function LoginPage() {
 	const [isRegister, setIsRegister] = useState(false);

@@ -11,13 +11,10 @@ A smart home dashboard application with support for Roborock vacuums and Ring ca
 
 **Location:** `/home/exedev/smarthome`
 
-## Recent Work: Roborock MQTT Commands
+## Recent Work: Comprehensive Improvements
 
-### Problem Solved
-Roborock commands (start, stop, find, etc.) require MQTT protocol with a complex binary message format. Initial attempts to implement this in TypeScript failed due to protocol complexity.
-
-### Solution Implemented
-Used **python-roborock** library via a Python bridge script:
+### Roborock MQTT via Python Bridge
+Roborock commands use MQTT protocol via **python-roborock** library:
 
 ```
 Node.js (tRPC) → spawn Python subprocess → python-roborock → MQTT → Device
@@ -27,21 +24,31 @@ Node.js (tRPC) → spawn Python subprocess → python-roborock → MQTT → Devi
 
 1. **`packages/backend/scripts/roborock_bridge.py`**
    - Python script that receives JSON via stdin
-   - Uses python-roborock's MQTT session and V1 protocol
+   - Actions: `command` (send commands), `get_status` (real-time status)
    - Returns JSON results to stdout
    - Requires: `packages/backend/.venv` with python-roborock installed
 
 2. **`packages/backend/src/services/roborock.ts`**
-   - `sendCommand()` - calls Python bridge for commands
+   - `sendCommand()` - returns `CommandResult` with error details and category
+   - `getDeviceStatusViaMqtt()` - real-time status via Python bridge
    - `callPythonBridge()` - spawns Python subprocess
-   - `connectMqtt()` - establishes MQTT connection (still present but unused for commands)
    - `discoverDevices()` - fetches devices via REST API
-   - Stores credentials in `this.credentials` Map
-   - Stores device localKeys in `this.deviceLocalKeys` Map
+   - Error categorization: `device_offline`, `auth_expired`, `command_timeout`, etc.
 
 3. **`packages/backend/src/trpc/routers/roborock.ts`**
-   - tRPC router with endpoints: status, devices, auth, command, etc.
-   - `command` mutation calls `roborockService.sendCommand()`
+   - tRPC router with endpoints: status, devices, auth, command, deviceStatus, etc.
+   - Returns meaningful error messages to frontend
+
+4. **`packages/backend/src/services/ring.ts`**
+   - Ring camera/doorbell integration
+   - HLS live streaming via FFmpeg
+   - Motion and doorbell event subscriptions
+   - Proper error handling for all operations
+
+5. **`packages/backend/src/routes/websocket.ts`**
+   - Real-time event delivery for Ring and Roborock
+   - Subscription tracking to prevent duplicates
+   - Handlers: `subscribe:ring`, `unsubscribe:ring`, `ping`
 
 ### Python Virtual Environment
 
@@ -166,68 +173,86 @@ echo '{"rriot": {...}, "device_id": "...", "local_key": "...", "command": "find_
 
 Latest commit: `feat(roborock): implement MQTT commands via python-roborock bridge`
 
+## Completed Work
+
+### ✅ Clean up unused MQTT code in roborock.ts
+- Removed TypeScript MQTT code (connectMqtt, handleMqttMessage, etc.)
+- Removed mqtt npm dependency
+- Python bridge is now the sole MQTT mechanism
+
+### ✅ Improve error handling
+- `sendCommand()` returns `CommandResult` with error details and category
+- Error categorization: `device_offline`, `auth_expired`, `command_timeout`, `missing_credentials`
+- tRPC router surfaces meaningful error messages to frontend
+
+### ✅ Device status polling via Python bridge
+- Added `get_status` action to Python bridge
+- Added `getDeviceStatusViaMqtt()` method
+- Added `RoborockMqttStatus` interface
+- Added `deviceStatus` tRPC endpoint
+
+### ✅ Ring camera improvements
+- Fixed tRPC router to return actual results instead of always success
+- Added proper error handling for toggleLight, triggerSiren, connect
+- Fixed stream cleanup on failure
+- Updated shared types with error fields
+
+### ✅ WebSocket improvements
+- Added subscription tracking to prevent duplicates
+- Added `unsubscribe:ring` message handler
+- Refactored Ring subscription into helper functions
+
 ## Next Steps
 
 ### High Priority
 
-1. **Clean up unused MQTT code in roborock.ts**
-   - Remove `connectMqtt()`, `handleMqttMessage()`, and related TypeScript MQTT code
-   - Remove mqtt npm dependency if no longer needed
-   - Keep only the Python bridge approach
-
-2. **Add more Roborock commands to frontend**
+1. **Add more Roborock commands to frontend**
    - Room-specific cleaning (`app_segment_clean`)
-   - Fan speed control (`set_custom_mode`)
-   - Water level control (`set_water_box_custom_mode`)
+   - Fan speed control (`set_custom_mode`) - backend done, need frontend UI
+   - Water level control (`set_water_box_custom_mode`) - backend done, need frontend UI
    - Get clean history
 
-3. **Improve error handling**
-   - Surface Python bridge errors to frontend with meaningful messages
-   - Add retry logic for transient MQTT failures
-   - Handle device offline scenarios gracefully
+2. **Add retry logic for transient failures**
+   - Retry on command_timeout errors
+   - Exponential backoff for device_offline
 
 ### Medium Priority
 
-4. **Add device status polling via Python bridge**
-   - Currently status comes from REST API during discovery
-   - Could use Python bridge to get real-time status via MQTT
-   - Update `get_status` action in bridge script
-
-5. **Ring camera improvements**
-   - Verify live streaming works
-   - Add motion event notifications
-   - Test doorbell functionality
-
-6. **Frontend enhancements**
-   - Real-time status updates via WebSocket
+3. **Frontend enhancements**
+   - Real-time status updates via WebSocket (use roborock:status events)
+   - Fan speed / water level controls UI
    - Map display for Roborock (if supported by device)
    - Clean history visualization
 
+4. **Integrate MQTT status polling into frontend**
+   - Use deviceStatus endpoint for on-demand refresh
+   - Show more detailed status (fan speed, water level, clean area, etc.)
+
 ### Low Priority
 
-7. **Performance optimization**
+5. **Performance optimization**
    - Consider keeping Python process alive instead of spawning per-command
    - Could use a simple HTTP server in Python or Unix socket
    - Would reduce latency from ~1s to ~100ms per command
 
-8. **Testing**
+6. **Testing**
    - Add integration tests for Roborock commands
    - Mock the Python bridge for unit tests
    - Add E2E tests for critical flows
 
-9. **Documentation**
+7. **Documentation**
    - API documentation for tRPC endpoints
    - Setup guide for new developers
    - Deployment instructions
 
 ### Technical Debt
 
-10. **Code cleanup**
-    - Remove unused imports and variables
-    - Fix any remaining ESLint/TypeScript warnings
-    - Consolidate duplicate code patterns
+8. **Code cleanup**
+   - Remove unused imports and variables
+   - Fix any remaining ESLint/TypeScript warnings
+   - Consolidate duplicate code patterns
 
-11. **Security review**
-    - Audit credential storage
-    - Review JWT token handling
-    - Ensure proper input validation
+9. **Security review**
+   - Audit credential storage
+   - Review JWT token handling
+   - Ensure proper input validation

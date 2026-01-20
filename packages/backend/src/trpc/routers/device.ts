@@ -27,11 +27,33 @@ const mapEvent = (row: DbEventRow): DeviceEvent => ({
 	createdAt: row.created_at,
 });
 
+// Prepared queries for bun:sqlite with positional parameters
+const listDevicesQuery = db.query<DbDeviceRow, [string]>(
+	"SELECT * FROM devices WHERE user_id = ?",
+);
+
+const getDeviceQuery = db.query<DbDeviceRow, [string, string]>(
+	"SELECT * FROM devices WHERE id = ? AND user_id = ?",
+);
+
+const checkDeviceOwnerQuery = db.query<{ id: string }, [string, string]>(
+	"SELECT id FROM devices WHERE id = ? AND user_id = ?",
+);
+
+const getDeviceEventsQuery = db.query<DbEventRow, [string, number]>(
+	"SELECT * FROM events WHERE device_id = ? ORDER BY created_at DESC LIMIT ?",
+);
+
+const getRecentEventsQuery = db.query<DbEventRow, [string, number]>(
+	`SELECT e.* FROM events e
+	 JOIN devices d ON e.device_id = d.id
+	 WHERE d.user_id = ?
+	 ORDER BY e.created_at DESC LIMIT ?`,
+);
+
 export const deviceRouter = router({
 	list: protectedProcedure.query(async ({ ctx }) => {
-		const rows = db
-			.prepare<[string], DbDeviceRow>("SELECT * FROM devices WHERE user_id = ?")
-			.all(ctx.user.id);
+		const rows = listDevicesQuery.all(ctx.user.id);
 
 		const devices = rows.map((row) => {
 			const device = mapDevice(row);
@@ -49,30 +71,18 @@ export const deviceRouter = router({
 	get: protectedProcedure
 		.input(z.object({ id: z.string() }))
 		.query(async ({ ctx, input }) => {
-			const row = db
-				.prepare<[string, string], DbDeviceRow>(
-					"SELECT * FROM devices WHERE id = ? AND user_id = ?",
-				)
-				.get(input.id, ctx.user.id);
+			const row = getDeviceQuery.get(input.id, ctx.user.id);
 			return row ? mapDevice(row) : null;
 		}),
 
 	events: protectedProcedure
 		.input(z.object({ deviceId: z.string(), limit: z.number().default(50) }))
 		.query(async ({ ctx, input }) => {
-			const device = db
-				.prepare<[string, string], { id: string }>(
-					"SELECT id FROM devices WHERE id = ? AND user_id = ?",
-				)
-				.get(input.deviceId, ctx.user.id);
+			const device = checkDeviceOwnerQuery.get(input.deviceId, ctx.user.id);
 
 			if (!device) return { events: [] };
 
-			const rows = db
-				.prepare<[string, number], DbEventRow>(
-					"SELECT * FROM events WHERE device_id = ? ORDER BY created_at DESC LIMIT ?",
-				)
-				.all(input.deviceId, input.limit);
+			const rows = getDeviceEventsQuery.all(input.deviceId, input.limit);
 
 			return { events: rows.map(mapEvent) };
 		}),
@@ -80,14 +90,7 @@ export const deviceRouter = router({
 	recentEvents: protectedProcedure
 		.input(z.object({ limit: z.number().default(20) }))
 		.query(async ({ ctx, input }) => {
-			const rows = db
-				.prepare<[string, number], DbEventRow>(
-					`SELECT e.* FROM events e
-					 JOIN devices d ON e.device_id = d.id
-					 WHERE d.user_id = ?
-					 ORDER BY e.created_at DESC LIMIT ?`,
-				)
-				.all(ctx.user.id, input.limit);
+			const rows = getRecentEventsQuery.all(ctx.user.id, input.limit);
 
 			return { events: rows.map(mapEvent) };
 		}),

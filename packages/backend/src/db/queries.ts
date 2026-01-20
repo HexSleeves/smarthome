@@ -34,60 +34,61 @@ export interface DeviceCredential {
 	updated_at: string;
 }
 
+// Prepared statements using bun:sqlite API with positional parameters
 export const userQueries = {
-	create: db.prepare(
+	create: db.query(
 		"INSERT INTO users (id, email, password_hash, name, role) VALUES (?, ?, ?, ?, ?)",
 	),
-	findByEmail: db.prepare<[string], User>(
+	findByEmail: db.query<User, [string]>(
 		"SELECT * FROM users WHERE email = ?",
 	),
-	findById: db.prepare<[string], User>("SELECT * FROM users WHERE id = ?"),
-	list: db.prepare<[], User>("SELECT * FROM users ORDER BY created_at DESC"),
+	findById: db.query<User, [string]>("SELECT * FROM users WHERE id = ?"),
+	list: db.query<User, []>("SELECT * FROM users ORDER BY created_at DESC"),
 };
 
 export const deviceQueries = {
-	create: db.prepare(
+	create: db.query(
 		"INSERT INTO devices (id, user_id, type, name, device_id, config) VALUES (?, ?, ?, ?, ?, ?)",
 	),
-	findById: db.prepare<[string], Device>("SELECT * FROM devices WHERE id = ?"),
-	findByType: db.prepare<[string, string], Device>(
+	findById: db.query<Device, [string]>("SELECT * FROM devices WHERE id = ?"),
+	findByType: db.query<Device, [string, string]>(
 		"SELECT * FROM devices WHERE user_id = ? AND type = ?",
 	),
-	updateStatus: db.prepare(
+	updateStatus: db.query(
 		"UPDATE devices SET status = ?, last_seen = CURRENT_TIMESTAMP WHERE id = ?",
 	),
 };
 
 export const credentialQueries = {
-	upsert: db.prepare(`
+	upsert: db.query(`
 		INSERT INTO device_credentials (id, user_id, provider, credentials_encrypted)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(user_id, provider) DO UPDATE SET
 			credentials_encrypted = excluded.credentials_encrypted,
 			updated_at = CURRENT_TIMESTAMP
 	`),
-	findByProvider: db.prepare<[string, string], DeviceCredential>(
+	findByProvider: db.query<DeviceCredential, [string, string]>(
 		"SELECT * FROM device_credentials WHERE user_id = ? AND provider = ?",
 	),
-	findAllByProvider: db.prepare<[string], { user_id: string }>(
+	findAllByProvider: db.query<{ user_id: string }, [string]>(
 		"SELECT user_id FROM device_credentials WHERE provider = ?",
 	),
 };
 
 export const sessionQueries = {
-	create: db.prepare(
+	create: db.query(
 		"INSERT INTO sessions (id, user_id, refresh_token, user_agent, ip_address, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
 	),
-	findByToken: db.prepare<
-		[string],
-		{ id: string; user_id: string; expires_at: string }
+	findByToken: db.query<
+		{ id: string; user_id: string; expires_at: string },
+		[string]
 	>("SELECT id, user_id, expires_at FROM sessions WHERE refresh_token = ?"),
-	delete: db.prepare("DELETE FROM sessions WHERE id = ?"),
-	deleteByUser: db.prepare("DELETE FROM sessions WHERE user_id = ?"),
+	delete: db.query("DELETE FROM sessions WHERE id = ?"),
+	deleteByUser: db.query("DELETE FROM sessions WHERE user_id = ?"),
 };
 
 export const eventQueries = {
-	create: db.prepare(
+	create: db.query(
 		"INSERT INTO events (id, device_id, type, data) VALUES (?, ?, ?, ?)",
 	),
 };
@@ -146,7 +147,7 @@ export function getCredentials(
 	userId: string,
 	provider: "roborock" | "ring",
 ): DeviceCredential | undefined {
-	return credentialQueries.findByProvider.get(userId, provider);
+	return credentialQueries.findByProvider.get(userId, provider) ?? undefined;
 }
 
 export function hasCredentials(

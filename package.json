@@ -6,11 +6,11 @@
 		"packages/*"
 	],
 	"scripts": {
-		"dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-		"dev:backend": "npm run dev -w @smarthome/backend",
-		"dev:frontend": "npm run dev -w @smarthome/frontend",
-		"build": "npm run build -w @smarthome/frontend && npm run build -w @smarthome/backend",
-		"start": "npm run start -w @smarthome/backend",
+		"dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
+		"dev:backend": "bun run --filter @smarthome/backend dev",
+		"dev:frontend": "bun run --filter @smarthome/frontend dev",
+		"build": "bun run --filter @smarthome/frontend build && bun run --filter @smarthome/backend build",
+		"start": "bun run --filter @smarthome/backend start",
 		"format": "biome format --write ",
 		"lint": "biome lint --write",
 		"check": "bunx biome check --write",

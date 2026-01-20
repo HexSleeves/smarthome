@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { dirname, join } from "node:path";
@@ -12,6 +12,7 @@ const __dirname = dirname(__filename);
 // Python daemon configuration
 const DAEMON_PORT = 9876;
 const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
+
 import {
 	createDevice,
 	deviceQueries,
@@ -252,7 +253,6 @@ const DPS_STATES_CLEANING = new Set([5, 7, 11, 16, 17, 18]);
 const DPS_STATES_RETURNING = new Set([6, 15]);
 const DPS_STATES_ERROR = new Set([12, 13]);
 
-
 /**
  * Determine device status from DPS state value.
  * Extracted to reduce cognitive complexity.
@@ -280,7 +280,6 @@ function determineDeviceStatus(
 	if (dpsState === undefined) return "idle";
 	return getStatusFromDpsState(dpsState);
 }
-
 
 class RoborockService extends EventEmitter {
 	private readonly credentials = new Map<string, RoborockCredentials>();
@@ -1015,7 +1014,9 @@ class RoborockService extends EventEmitter {
 		if (this.daemonReady) {
 			// Verify daemon is still responding
 			try {
-				const resp = await fetch(`${DAEMON_URL}/health`, { signal: AbortSignal.timeout(2000) });
+				const resp = await fetch(`${DAEMON_URL}/health`, {
+					signal: AbortSignal.timeout(2000),
+				});
 				if (resp.ok) return true;
 			} catch {
 				// Daemon not responding, restart it
@@ -1030,15 +1031,25 @@ class RoborockService extends EventEmitter {
 			this.daemonProcess = null;
 		}
 
-		const scriptPath = join(__dirname, "..", "..", "scripts", "roborock_daemon.py");
+		const scriptPath = join(
+			__dirname,
+			"..",
+			"..",
+			"scripts",
+			"roborock_daemon.py",
+		);
 		const venvPython = join(__dirname, "..", "..", ".venv", "bin", "python");
 
 		log.info({ scriptPath }, "Starting Python daemon");
 
-		this.daemonProcess = spawn(venvPython, [scriptPath, "--port", String(DAEMON_PORT)], {
-			stdio: ["ignore", "pipe", "pipe"],
-			detached: false,
-		});
+		this.daemonProcess = spawn(
+			venvPython,
+			[scriptPath, "--port", String(DAEMON_PORT)],
+			{
+				stdio: ["ignore", "pipe", "pipe"],
+				detached: false,
+			},
+		);
 
 		this.daemonProcess.stderr?.on("data", (data) => {
 			const msg = data.toString().trim();
@@ -1056,7 +1067,9 @@ class RoborockService extends EventEmitter {
 		for (let i = 0; i < 30; i++) {
 			await new Promise((r) => setTimeout(r, 100));
 			try {
-				const resp = await fetch(`${DAEMON_URL}/health`, { signal: AbortSignal.timeout(1000) });
+				const resp = await fetch(`${DAEMON_URL}/health`, {
+					signal: AbortSignal.timeout(1000),
+				});
 				if (resp.ok) {
 					this.daemonReady = true;
 					log.info("Python daemon is ready");
@@ -1097,13 +1110,19 @@ class RoborockService extends EventEmitter {
 				signal: AbortSignal.timeout(10000),
 			});
 
-			const result = await resp.json() as { success: boolean; error?: string };
+			const result = (await resp.json()) as {
+				success: boolean;
+				error?: string;
+			};
 			if (result.success) {
 				this.daemonInitializedUsers.add(userId);
 				log.info({ userId }, "Daemon session initialized");
 				return true;
 			}
-			log.error({ userId, error: result.error }, "Failed to init daemon session");
+			log.error(
+				{ userId, error: result.error },
+				"Failed to init daemon session",
+			);
 			return false;
 		} catch (err) {
 			log.error({ err, userId }, "Error initializing daemon session");
@@ -1120,7 +1139,12 @@ class RoborockService extends EventEmitter {
 		localKey: string,
 		command: string,
 		params?: RoborockCommandParam[],
-	): Promise<{ success: boolean; result?: unknown; error?: string; status?: RoborockMqttStatus }> {
+	): Promise<{
+		success: boolean;
+		result?: unknown;
+		error?: string;
+		status?: RoborockMqttStatus;
+	}> {
 		if (!(await this.initDaemonSession(userId))) {
 			return { success: false, error: "Failed to initialize daemon session" };
 		}
@@ -1139,10 +1163,18 @@ class RoborockService extends EventEmitter {
 				signal: AbortSignal.timeout(35000), // 35s timeout (daemon has 30s internal)
 			});
 
-			return await resp.json() as { success: boolean; result?: unknown; error?: string; status?: RoborockMqttStatus };
+			return (await resp.json()) as {
+				success: boolean;
+				result?: unknown;
+				error?: string;
+				status?: RoborockMqttStatus;
+			};
 		} catch (err) {
 			log.error({ err, deviceId, command }, "Error calling daemon");
-			return { success: false, error: err instanceof Error ? err.message : "Daemon call failed" };
+			return {
+				success: false,
+				error: err instanceof Error ? err.message : "Daemon call failed",
+			};
 		}
 	}
 
@@ -1221,7 +1253,10 @@ class RoborockService extends EventEmitter {
 			);
 
 			if (result.success) {
-				log.info({ deviceId, command, result: result.result }, "Command success");
+				log.info(
+					{ deviceId, command, result: result.result },
+					"Command success",
+				);
 				return { success: true };
 			}
 
@@ -1234,8 +1269,13 @@ class RoborockService extends EventEmitter {
 			};
 		} catch (err) {
 			const error =
-				err instanceof Error ? err.message : "Failed to communicate with device";
-			log.error({ err, deviceId, command }, "Failed to send command via Python daemon");
+				err instanceof Error
+					? err.message
+					: "Failed to communicate with device";
+			log.error(
+				{ err, deviceId, command },
+				"Failed to send command via Python daemon",
+			);
 			return {
 				success: false,
 				error,
@@ -1271,7 +1311,11 @@ class RoborockService extends EventEmitter {
 	async getDeviceStatusViaMqtt(
 		userId: string,
 		deviceId: string,
-	): Promise<{ success: boolean; status?: RoborockMqttStatus; error?: string }> {
+	): Promise<{
+		success: boolean;
+		status?: RoborockMqttStatus;
+		error?: string;
+	}> {
 		const creds = this.credentials.get(userId);
 		if (!creds?.rriot) {
 			return { success: false, error: "No credentials" };

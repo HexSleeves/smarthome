@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "../../data");
@@ -13,7 +13,7 @@ if (!existsSync(DATA_DIR)) {
 export const db = new Database(join(DATA_DIR, "smarthome.db"));
 
 // Enable WAL mode for better performance
-db.pragma("journal_mode = WAL");
+db.exec("PRAGMA journal_mode = WAL");
 
 // Initialize schema
 db.exec(`

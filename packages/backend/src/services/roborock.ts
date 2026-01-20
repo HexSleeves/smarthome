@@ -290,6 +290,11 @@ class RoborockService extends EventEmitter {
 
 	private readonly deviceLocalKeys = new Map<string, string>(); // deviceId -> localKey
 
+	// Python daemon management for performance optimization
+	private daemonProcess: ChildProcess | null = null;
+	private daemonReady = false;
+	private daemonInitializedUsers = new Set<string>();
+
 	// Generate a unique device identifier (persisted per user session)
 	private generateDeviceIdentifier(): string {
 		return crypto.randomBytes(16).toString("base64url");
@@ -1002,7 +1007,166 @@ class RoborockService extends EventEmitter {
 	}
 
 	/**
-	 * Send a command to a Roborock device using python-roborock bridge.
+
+	/**
+	 * Start the Python daemon if not already running.
+	 */
+	private async ensureDaemonRunning(): Promise<boolean> {
+		if (this.daemonReady) {
+			// Verify daemon is still responding
+			try {
+				const resp = await fetch(`${DAEMON_URL}/health`, { signal: AbortSignal.timeout(2000) });
+				if (resp.ok) return true;
+			} catch {
+				// Daemon not responding, restart it
+				log.warn("Daemon not responding, restarting...");
+				this.daemonReady = false;
+				this.daemonInitializedUsers.clear();
+			}
+		}
+
+		if (this.daemonProcess) {
+			this.daemonProcess.kill();
+			this.daemonProcess = null;
+		}
+
+		const scriptPath = join(__dirname, "..", "..", "scripts", "roborock_daemon.py");
+		const venvPython = join(__dirname, "..", "..", ".venv", "bin", "python");
+
+		log.info({ scriptPath }, "Starting Python daemon");
+
+		this.daemonProcess = spawn(venvPython, [scriptPath, "--port", String(DAEMON_PORT)], {
+			stdio: ["ignore", "pipe", "pipe"],
+			detached: false,
+		});
+
+		this.daemonProcess.stderr?.on("data", (data) => {
+			const msg = data.toString().trim();
+			if (msg) log.info({ daemon: msg }, "Python daemon");
+		});
+
+		this.daemonProcess.on("exit", (code) => {
+			log.warn({ code }, "Python daemon exited");
+			this.daemonReady = false;
+			this.daemonInitializedUsers.clear();
+			this.daemonProcess = null;
+		});
+
+		// Wait for daemon to be ready
+		for (let i = 0; i < 30; i++) {
+			await new Promise((r) => setTimeout(r, 100));
+			try {
+				const resp = await fetch(`${DAEMON_URL}/health`, { signal: AbortSignal.timeout(1000) });
+				if (resp.ok) {
+					this.daemonReady = true;
+					log.info("Python daemon is ready");
+					return true;
+				}
+			} catch {
+				// Keep waiting
+			}
+		}
+
+		log.error("Failed to start Python daemon");
+		return false;
+	}
+
+	/**
+	 * Initialize daemon session for a user.
+	 */
+	private async initDaemonSession(userId: string): Promise<boolean> {
+		const creds = this.credentials.get(userId);
+		if (!creds?.rriot) {
+			log.warn({ userId }, "No rriot credentials for daemon init");
+			return false;
+		}
+
+		if (this.daemonInitializedUsers.has(userId)) {
+			return true;
+		}
+
+		if (!(await this.ensureDaemonRunning())) {
+			return false;
+		}
+
+		try {
+			const resp = await fetch(`${DAEMON_URL}/init`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ user_id: userId, rriot: creds.rriot }),
+				signal: AbortSignal.timeout(10000),
+			});
+
+			const result = await resp.json() as { success: boolean; error?: string };
+			if (result.success) {
+				this.daemonInitializedUsers.add(userId);
+				log.info({ userId }, "Daemon session initialized");
+				return true;
+			}
+			log.error({ userId, error: result.error }, "Failed to init daemon session");
+			return false;
+		} catch (err) {
+			log.error({ err, userId }, "Error initializing daemon session");
+			return false;
+		}
+	}
+
+	/**
+	 * Send command via the persistent Python daemon.
+	 */
+	private async callDaemon(
+		userId: string,
+		deviceId: string,
+		localKey: string,
+		command: string,
+		params?: RoborockCommandParam[],
+	): Promise<{ success: boolean; result?: unknown; error?: string; status?: RoborockMqttStatus }> {
+		if (!(await this.initDaemonSession(userId))) {
+			return { success: false, error: "Failed to initialize daemon session" };
+		}
+
+		try {
+			const resp = await fetch(`${DAEMON_URL}/command`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					user_id: userId,
+					device_id: deviceId,
+					local_key: localKey,
+					command,
+					params: params && params.length > 0 ? params : undefined,
+				}),
+				signal: AbortSignal.timeout(35000), // 35s timeout (daemon has 30s internal)
+			});
+
+			return await resp.json() as { success: boolean; result?: unknown; error?: string; status?: RoborockMqttStatus };
+		} catch (err) {
+			log.error({ err, deviceId, command }, "Error calling daemon");
+			return { success: false, error: err instanceof Error ? err.message : "Daemon call failed" };
+		}
+	}
+
+	/**
+	 * Disconnect user from daemon.
+	 */
+	private async disconnectDaemonSession(userId: string): Promise<void> {
+		if (!this.daemonInitializedUsers.has(userId)) return;
+
+		try {
+			await fetch(`${DAEMON_URL}/disconnect`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ user_id: userId }),
+				signal: AbortSignal.timeout(5000),
+			});
+			this.daemonInitializedUsers.delete(userId);
+		} catch (err) {
+			log.warn({ err, userId }, "Error disconnecting daemon session");
+		}
+	}
+
+	/**
+	 * Send a command to a Roborock device using persistent Python daemon.
 	 */
 	async sendCommand(
 		userId: string,
@@ -1026,7 +1190,7 @@ class RoborockService extends EventEmitter {
 
 		if (!creds.rriot) {
 			const error = "No IoT credentials available - please re-authenticate";
-			log.error({ userId }, "No rriot credentials for Python bridge");
+			log.error({ userId }, "No rriot credentials for Python daemon");
 			return {
 				success: false,
 				error,
@@ -1047,13 +1211,14 @@ class RoborockService extends EventEmitter {
 		}
 
 		try {
-			const result = await this.callPythonBridge("command", {
-				rriot: creds.rriot,
-				device_id: deviceId,
-				local_key: localKey,
+			// Use persistent daemon for improved performance
+			const result = await this.callDaemon(
+				userId,
+				deviceId,
+				localKey,
 				command,
-				params: params.length > 0 ? params : undefined,
-			});
+				params.length > 0 ? params : undefined,
+			);
 
 			if (result.success) {
 				log.info({ deviceId, command, result: result.result }, "Command success");
@@ -1070,67 +1235,13 @@ class RoborockService extends EventEmitter {
 		} catch (err) {
 			const error =
 				err instanceof Error ? err.message : "Failed to communicate with device";
-			log.error({ err, deviceId, command }, "Failed to send command via Python bridge");
+			log.error({ err, deviceId, command }, "Failed to send command via Python daemon");
 			return {
 				success: false,
 				error,
 				errorCategory: categorizeError(error),
 			};
 		}
-	}
-
-	/**
-	 * Call the Python roborock bridge script.
-	 */
-	private callPythonBridge(
-		action: string,
-		input: Record<string, unknown>,
-	): Promise<{ success: boolean; result?: unknown; error?: string; status?: unknown; devices?: unknown[] }> {
-		return new Promise((resolve, reject) => {
-			const scriptPath = join(__dirname, "..", "..", "scripts", "roborock_bridge.py");
-			const venvPython = join(__dirname, "..", "..", ".venv", "bin", "python");
-
-			log.info({ action, scriptPath }, "Calling Python bridge");
-
-			const proc = spawn(venvPython, [scriptPath, action], {
-				stdio: ["pipe", "pipe", "pipe"],
-				timeout: 60000, // 60 second timeout
-			});
-
-			let stdout = "";
-			let stderr = "";
-
-			proc.stdout.on("data", (data) => {
-				stdout += data.toString();
-			});
-
-			proc.stderr.on("data", (data) => {
-				stderr += data.toString();
-			});
-
-			proc.on("close", (code) => {
-				if (stderr) {
-					log.warn({ stderr }, "Python bridge stderr");
-				}
-
-				try {
-					const result = JSON.parse(stdout);
-					resolve(result);
-				} catch (err) {
-					log.error({ stdout, code }, "Failed to parse Python bridge output");
-					reject(new Error(`Python bridge failed with code ${code}: ${stdout}`));
-				}
-			});
-
-			proc.on("error", (err) => {
-				log.error({ err }, "Python bridge process error");
-				reject(err);
-			});
-
-			// Write input to stdin
-			proc.stdin.write(JSON.stringify(input));
-			proc.stdin.end();
-		});
 	}
 
 	startCleaning(userId: string, deviceId: string): Promise<CommandResult> {
@@ -1154,7 +1265,7 @@ class RoborockService extends EventEmitter {
 	}
 
 	/**
-	 * Get device status via Python bridge (MQTT).
+	 * Get device status via Python daemon (MQTT).
 	 * Returns real-time status data from the device.
 	 */
 	async getDeviceStatusViaMqtt(
@@ -1172,16 +1283,17 @@ class RoborockService extends EventEmitter {
 		}
 
 		try {
-			const result = await this.callPythonBridge("get_status", {
-				rriot: creds.rriot,
-				device_id: deviceId,
-				local_key: localKey,
-			});
+			const result = await this.callDaemon(
+				userId,
+				deviceId,
+				localKey,
+				"get_status",
+			);
 
 			if (result.success && result.status) {
 				return {
 					success: true,
-					status: result.status as RoborockMqttStatus,
+					status: result.status,
 				};
 			}
 
@@ -1246,8 +1358,9 @@ class RoborockService extends EventEmitter {
 		return this.credentials.has(userId);
 	}
 
-	disconnect(userId: string): void {
+	async disconnect(userId: string): Promise<void> {
 		this.stopPolling(userId);
+		await this.disconnectDaemonSession(userId);
 		this.credentials.delete(userId);
 		for (const key of this.deviceStates.keys()) {
 			if (key.startsWith(`${userId}:`)) {
@@ -1265,8 +1378,23 @@ class RoborockService extends EventEmitter {
 		return undefined;
 	}
 
-	shutdown(): void {
+	async shutdown(): Promise<void> {
 		for (const userId of this.pollingIntervals.keys()) this.stopPolling(userId);
+		// Shutdown daemon
+		if (this.daemonProcess) {
+			try {
+				await fetch(`${DAEMON_URL}/shutdown`, {
+					method: "POST",
+					signal: AbortSignal.timeout(5000),
+				});
+			} catch {
+				// Ignore errors during shutdown
+			}
+			this.daemonProcess.kill();
+			this.daemonProcess = null;
+		}
+		this.daemonReady = false;
+		this.daemonInitializedUsers.clear();
 		this.deviceLocalKeys.clear();
 		this.credentials.clear();
 		this.deviceStates.clear();

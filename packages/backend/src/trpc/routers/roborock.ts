@@ -94,7 +94,10 @@ export const roborockRouter = router({
 				find: () => s.findRobot(uid, deviceId),
 			};
 
-			await actions[command]();
+			const result = await actions[command]();
+			if (!result) {
+				throw new Error("Command failed - check server logs for details");
+			}
 			return { success: true };
 		}),
 

@@ -4,7 +4,6 @@ import pino from "pino";
 import { config } from "../config.js";
 import {
 	createDevice,
-	createEvent,
 	deviceQueries,
 	getCredentials,
 	saveCredentials,
@@ -15,21 +14,11 @@ import type { RoborockCommandParam } from "../types.js";
 const log = pino({ name: "roborock" });
 
 // Roborock API endpoints
-// v1 API - for getUrlByEmail, getHomeDetail, and loginWithCode (fallback)
 const API_V1_GET_URL = "api/v1/getUrlByEmail";
 const API_V1_HOME_DETAIL = "api/v1/getHomeDetail";
-const API_V1_LOGIN_CODE = "api/v1/loginWithCode";
 const API_V3_SIGN = "api/v3/key/sign";
-// v4 API - for sending code and login (supports 2FA and returns rriot)
 const API_V4_SEND_CODE = "api/v4/email/code/send";
 const API_V4_LOGIN_CODE = "api/v4/auth/email/login/code";
-
-const DEFAULT_HEADERS = {
-	header_appversion: "4.54.02",
-	header_clientlang: "en",
-	header_phonemodel: "Pixel 7",
-	header_phonesystem: "Android",
-};
 
 // API Response Types
 interface RoborockApiResponse<T = unknown> {
@@ -69,6 +58,28 @@ interface IoTApiResponse<T = unknown> {
 interface DeviceStatus {
 	[key: string]: number;
 }
+
+/**
+ * DPS (Data Point Service) keys for Roborock device status.
+ * These are the keys used in the deviceStatus object from the IoT API.
+ */
+const DPS_KEYS = {
+	ERROR_CODE: "120",
+	STATE: "121",
+	BATTERY: "122",
+	FAN_POWER: "123",
+	WATER_BOX_MODE: "124",
+	MAIN_BRUSH_WORK_TIME: "125",
+	SIDE_BRUSH_WORK_TIME: "126",
+	FILTER_WORK_TIME: "127",
+	ADDITIONAL_PROPS: "128",
+	TASK_COMPLETE: "130",
+	TASK_CANCEL_LOW_POWER: "131",
+	TASK_CANCEL_IN_MOTION: "132",
+	CHARGE_STATUS: "133",
+	DRYING_STATUS: "134",
+	OFFLINE_STATUS: "135",
+} as const;
 
 interface HomeDevice {
 	duid: string;
@@ -162,60 +173,41 @@ export interface RoborockDeviceState {
 	lastClean: string | null;
 }
 
-const STATUS_MAP: Record<number, RoborockDeviceState["status"]> = {
-	1: "idle",
-	2: "idle",
-	3: "idle",
-	5: "cleaning",
-	6: "returning",
-	7: "cleaning",
-	8: "charging",
-	9: "charging",
-	10: "paused",
-	11: "cleaning",
-	12: "error",
-	13: "error",
-	14: "idle",
-	15: "returning",
-	16: "cleaning",
-	17: "cleaning",
-	18: "cleaning",
-	100: "charging",
-};
+// DPS state value mappings for status decoding
+// State 8 = charging, 5/7/11/16/17/18 = cleaning, 6/15 = returning, 10 = paused, 12/13 = error
+const DPS_STATE_CHARGING = 8;
+const DPS_STATE_PAUSED = 10;
+const DPS_STATES_CLEANING = new Set([5, 7, 11, 16, 17, 18]);
+const DPS_STATES_RETURNING = new Set([6, 15]);
+const DPS_STATES_ERROR = new Set([12, 13]);
 
-const FAN_MAP: Record<number, RoborockDeviceState["fanSpeed"]> = {
-	101: "quiet",
-	102: "balanced",
-	103: "turbo",
-	104: "max",
-	105: "quiet",
-	106: "quiet",
-};
+/**
+ * Determine device status from DPS state value.
+ * Extracted to reduce cognitive complexity.
+ */
+function getStatusFromDpsState(
+	dpsState: number,
+): RoborockDeviceState["status"] {
+	if (dpsState === DPS_STATE_CHARGING) return "charging";
+	if (DPS_STATES_CLEANING.has(dpsState)) return "cleaning";
+	if (DPS_STATES_RETURNING.has(dpsState)) return "returning";
+	if (dpsState === DPS_STATE_PAUSED) return "paused";
+	if (DPS_STATES_ERROR.has(dpsState)) return "error";
+	return "idle";
+}
 
-const WATER_MAP: Record<number, RoborockDeviceState["waterLevel"]> = {
-	200: "off",
-	201: "low",
-	202: "medium",
-	203: "high",
-};
-
-const ERROR_MSG: Record<number, string> = {
-	0: "No error",
-	1: "Laser sensor fault",
-	2: "Collision sensor fault",
-	3: "Wheel floating",
-	4: "Cliff sensor fault",
-	5: "Main brush jammed",
-	6: "Side brush jammed",
-	7: "Wheel jammed",
-	8: "Device stuck",
-	9: "Dust bin missing",
-	10: "Filter clogged",
-	11: "Magnetic field detected",
-	12: "Low battery",
-	13: "Charging problem",
-	14: "Battery failure",
-};
+/**
+ * Determine device status based on online state and DPS state.
+ * Extracted to reduce cognitive complexity.
+ */
+function determineDeviceStatus(
+	online: boolean,
+	dpsState: number | undefined,
+): RoborockDeviceState["status"] {
+	if (!online) return "offline";
+	if (dpsState === undefined) return "idle";
+	return getStatusFromDpsState(dpsState);
+}
 
 class RoborockService extends EventEmitter {
 	private readonly credentials = new Map<string, RoborockCredentials>();
@@ -288,7 +280,8 @@ class RoborockService extends EventEmitter {
 					},
 				);
 
-				const data = (await response.json()) as RoborockApiResponse<GetUrlByEmailData>;
+				const data =
+					(await response.json()) as RoborockApiResponse<GetUrlByEmailData>;
 				log.info(
 					{
 						code: data.code,
@@ -303,7 +296,7 @@ class RoborockService extends EventEmitter {
 					// Use provided country/countryCode, default to US if not provided
 					const country = data.data.country || "US";
 					const countryCode = data.data.countrycode || "1";
-					
+
 					return {
 						baseURL: data.data.url,
 						country,
@@ -329,7 +322,8 @@ class RoborockService extends EventEmitter {
 
 	// Generate random alphanumeric string for signing
 	private generateRandomAlphanumeric(length: number): string {
-		const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+		const chars =
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 		let result = "";
 		const bytes = crypto.randomBytes(length);
 		for (let i = 0; i < length; i++) {
@@ -356,7 +350,9 @@ class RoborockService extends EventEmitter {
 		log.info({ code: data.code, hasK: !!data.data?.k }, "Sign key response");
 
 		if (data.code !== 200 || !data.data?.k) {
-			throw new Error(`Failed to get signing key: ${data.msg || "unknown error"}`);
+			throw new Error(
+				`Failed to get signing key: ${data.msg || "unknown error"}`,
+			);
 		}
 
 		return data.data.k;
@@ -365,7 +361,7 @@ class RoborockService extends EventEmitter {
 	async authenticate(
 		userId: string,
 		email: string,
-		password: string,
+		_password: string,
 	): Promise<{
 		success: boolean;
 		error?: string;
@@ -491,14 +487,23 @@ class RoborockService extends EventEmitter {
 				};
 			}
 
-			const { email, baseURL, deviceIdentifier, country, countryCode } = pending;
+			const { email, baseURL, deviceIdentifier, country, countryCode } =
+				pending;
 			const headerClientId = this.getHeaderClientId(email, deviceIdentifier);
 
-			log.info({ baseURL, email, country, countryCode }, "Attempting v4 loginWithCode");
+			log.info(
+				{ baseURL, email, country, countryCode },
+				"Attempting v4 loginWithCode",
+			);
 
 			// Generate random alphanumeric nonce and get signing key for v4 API
 			const xMercyKs = this.generateRandomAlphanumeric(16);
-			const xMercyK = await this.getSignKey(baseURL, email, deviceIdentifier, xMercyKs);
+			const xMercyK = await this.getSignKey(
+				baseURL,
+				email,
+				deviceIdentifier,
+				xMercyKs,
+			);
 
 			// Use v4 loginWithCode API
 			const body = new URLSearchParams({
@@ -525,7 +530,8 @@ class RoborockService extends EventEmitter {
 				body: body.toString(),
 			});
 
-			const loginData = (await loginResponse.json()) as RoborockApiResponse<LoginData>;
+			const loginData =
+				(await loginResponse.json()) as RoborockApiResponse<LoginData>;
 			log.info(
 				{
 					code: loginData.code,
@@ -546,7 +552,8 @@ class RoborockService extends EventEmitter {
 				if (loginData.code === 3009) {
 					return {
 						success: false,
-						error: "Please accept the user agreement in the Roborock app first.",
+						error:
+							"Please accept the user agreement in the Roborock app first.",
 					};
 				}
 				if (loginData.code === 3006) {
@@ -558,7 +565,8 @@ class RoborockService extends EventEmitter {
 				if (loginData.code === 3039) {
 					return {
 						success: false,
-						error: "Account does not exist in this region. Please check your email.",
+						error:
+							"Account does not exist in this region. Please check your email.",
 					};
 				}
 				return {
@@ -671,7 +679,8 @@ class RoborockService extends EventEmitter {
 			const homeResponse = await fetch(`${baseURL}/${API_V1_HOME_DETAIL}`, {
 				headers: { Authorization: creds.token },
 			});
-			const homeData = (await homeResponse.json()) as RoborockApiResponse<HomeDetailData>;
+			const homeData =
+				(await homeResponse.json()) as RoborockApiResponse<HomeDetailData>;
 			log.info(
 				{
 					status: homeResponse.status,
@@ -727,7 +736,8 @@ class RoborockService extends EventEmitter {
 				},
 			});
 
-			const devicesData = (await devicesResponse.json()) as IoTApiResponse<HomeData>;
+			const devicesData =
+				(await devicesResponse.json()) as IoTApiResponse<HomeData>;
 			log.info(
 				{
 					status: devicesResponse.status,
@@ -748,7 +758,7 @@ class RoborockService extends EventEmitter {
 			for (const device of devices) {
 				// Log full device data for debugging
 				log.info({ device }, "Device data from IoT API");
-				
+
 				const deviceId = device.duid;
 				const key = `${userId}:${deviceId}`;
 
@@ -775,26 +785,24 @@ class RoborockService extends EventEmitter {
 				}
 
 				// Parse device_status if available
-				// DPS IDs: 121=state, 122=battery (based on common Roborock DPS mappings)
 				const deviceStatus = device.deviceStatus || {};
-				const dpsState = deviceStatus["121"];
-				const dpsBattery = deviceStatus["122"];
-				
-				// Map DPS state to our status enum
-				// Common states: 1=idle, 2=idle, 3=idle, 5=cleaning, 6=returning, 7=cleaning, 8=charging
-				let status: RoborockDeviceState["status"] = device.online ? "idle" : "offline";
-				if (device.online && dpsState !== undefined) {
-					if (dpsState === 8) status = "charging";
-					else if (dpsState === 5 || dpsState === 7 || dpsState === 11 || dpsState === 16 || dpsState === 17 || dpsState === 18) status = "cleaning";
-					else if (dpsState === 6 || dpsState === 15) status = "returning";
-					else if (dpsState === 10) status = "paused";
-					else if (dpsState === 12 || dpsState === 13) status = "error";
-				}
-				
+				const dpsState = deviceStatus[DPS_KEYS.STATE];
+				const dpsBattery = deviceStatus[DPS_KEYS.BATTERY];
+
+				// Map DPS state to status enum
+				const status = determineDeviceStatus(device.online, dpsState);
+
 				const battery = typeof dpsBattery === "number" ? dpsBattery : 0;
-				
+
 				log.info(
-					{ deviceId, online: device.online, dpsState, dpsBattery, status, battery },
+					{
+						deviceId,
+						online: device.online,
+						dpsState,
+						dpsBattery,
+						status,
+						battery,
+					},
 					"Parsed device status from home API",
 				);
 
@@ -856,22 +864,11 @@ class RoborockService extends EventEmitter {
 
 			// Parse device_status
 			const deviceStatus: DeviceStatus = device.deviceStatus || {};
-			const dpsState = deviceStatus["121"];
-			const dpsBattery = deviceStatus["122"];
+			const dpsState = deviceStatus[DPS_KEYS.STATE];
+			const dpsBattery = deviceStatus[DPS_KEYS.BATTERY];
 
 			// Update status based on online and DPS state
-			if (!device.online) {
-				state.status = "offline";
-			} else if (dpsState !== undefined) {
-				if (dpsState === 8) state.status = "charging";
-				else if ([5, 7, 11, 16, 17, 18].includes(dpsState)) state.status = "cleaning";
-				else if ([6, 15].includes(dpsState)) state.status = "returning";
-				else if (dpsState === 10) state.status = "paused";
-				else if ([12, 13].includes(dpsState)) state.status = "error";
-				else state.status = "idle";
-			} else {
-				state.status = "idle";
-			}
+			state.status = determineDeviceStatus(device.online, dpsState);
 
 			if (typeof dpsBattery === "number") {
 				state.battery = dpsBattery;
@@ -928,7 +925,10 @@ class RoborockService extends EventEmitter {
 	): Promise<boolean> {
 		const creds = this.credentials.get(userId);
 		if (!creds) {
-			log.warn({ userId, deviceId, command }, "Cannot send command: no credentials");
+			log.warn(
+				{ userId, deviceId, command },
+				"Cannot send command: no credentials",
+			);
 			return false;
 		}
 
@@ -939,7 +939,7 @@ class RoborockService extends EventEmitter {
 			{ userId, deviceId, command },
 			"Command sending not yet implemented - requires MQTT",
 		);
-		
+
 		return false;
 	}
 
@@ -993,7 +993,10 @@ class RoborockService extends EventEmitter {
 	 * Get cleaning history for a device.
 	 * NOTE: This requires MQTT implementation which is not yet available.
 	 */
-	async getCleanHistory(_userId: string, _deviceId: string): Promise<CleanHistoryRecord[]> {
+	async getCleanHistory(
+		_userId: string,
+		_deviceId: string,
+	): Promise<CleanHistoryRecord[]> {
 		// TODO: Implement via MQTT - REST endpoint does not exist
 		log.warn("getCleanHistory not yet implemented - requires MQTT");
 		return [];

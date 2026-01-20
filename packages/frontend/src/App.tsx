@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "@/components/layout/AppShell";
+import { useWebSocketConnection } from "@/hooks/useWebSocket";
 import { useAuthStore } from "@/stores/auth";
 
 // Lazy load pages for code splitting
@@ -54,9 +55,19 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function App() {
 	const { checkAuth, isAuthenticated } = useAuthStore();
 
+	// Initialize WebSocket connection when authenticated
+	const { connected: wsConnected } = useWebSocketConnection();
+
 	useEffect(() => {
 		checkAuth();
 	}, [checkAuth]);
+
+	// Log WebSocket status for debugging
+	useEffect(() => {
+		if (isAuthenticated) {
+			console.log("WebSocket connected:", wsConnected);
+		}
+	}, [wsConnected, isAuthenticated]);
 
 	return (
 		<Suspense fallback={<FullPageLoader />}>

@@ -1,5 +1,16 @@
-import type { RoborockFanSpeed, RoborockWaterLevel } from "@smarthome/shared";
+import type {
+	RoborockDeviceState,
+	RoborockFanSpeed,
+	RoborockWaterLevel,
+} from "@smarthome/shared";
+import { useEffect } from "react";
+import { wsClient } from "@/lib/websocket";
 import { trpc } from "@/lib/trpc/client";
+import {
+	useRoborockStore,
+	useRoborockDevicesFromStore,
+	useRoborockDeviceLastUpdated,
+} from "@/stores/roborock";
 
 export function useRoborockStatus() {
 	const { data, isLoading, error } = trpc.roborock.status.useQuery();
@@ -12,37 +23,118 @@ export function useRoborockStatus() {
 	};
 }
 
+/**
+ * Hook for Roborock devices with real-time WebSocket updates.
+ * Uses Zustand store to maintain device state that can be updated
+ * both by tRPC queries and WebSocket events.
+ */
 export function useRoborockDevices() {
 	const { connected } = useRoborockStatus();
+	const setDevices = useRoborockStore((state) => state.setDevices);
+	const updateDeviceFromWebSocket = useRoborockStore(
+		(state) => state.updateDeviceFromWebSocket,
+	);
+
+	// Fetch devices via tRPC
 	const { data, isLoading, error } = trpc.roborock.devices.useQuery(undefined, {
 		enabled: connected,
-		refetchInterval: 10000,
+		refetchInterval: 30000, // Poll every 30s as fallback
+		staleTime: 10000, // Consider data stale after 10s
 	});
 
+	// Update store when tRPC data changes
+	useEffect(() => {
+		if (data?.devices) {
+			setDevices(data.devices);
+		}
+	}, [data?.devices, setDevices]);
+
+	// Subscribe to WebSocket updates
+	useEffect(() => {
+		if (!connected) return;
+
+		const unsubscribe = wsClient.on(
+			"roborock:status",
+			(data: { deviceId: string; state: RoborockDeviceState }) => {
+				if (data.deviceId && data.state) {
+					updateDeviceFromWebSocket(data.deviceId, data.state);
+				}
+			},
+		);
+
+		return () => {
+			unsubscribe();
+		};
+	}, [connected, updateDeviceFromWebSocket]);
+
+	// Get devices from store (reactive)
+	const devices = useRoborockDevicesFromStore();
+
 	return {
-		devices: data?.devices ?? [],
+		devices,
 		isLoading,
 		error,
 	};
 }
 
+/**
+ * Hook for a single Roborock device with real-time updates.
+ */
+export function useRoborockDevice(deviceId: string) {
+	const device = useRoborockStore((state) => state.devicesById[deviceId]);
+	const lastUpdated = useRoborockDeviceLastUpdated(deviceId);
+
+	return {
+		device,
+		lastUpdated: lastUpdated ? new Date(lastUpdated) : undefined,
+	};
+}
+
 export function useRoborockCommands(deviceId: string) {
 	const utils = trpc.useUtils();
+	const updateDevice = useRoborockStore((state) => state.updateDevice);
 
 	const commandMutation = trpc.roborock.command.useMutation({
-		onSuccess: () => {
+		onSuccess: (result) => {
+			// Invalidate to fetch fresh data after command
 			utils.roborock.devices.invalidate();
+
+			if (!result.success && result.error) {
+				// Could show a toast notification here
+				console.warn("Command failed:", result.error, result.errorCategory);
+			}
 		},
 	});
 
 	const fanSpeedMutation = trpc.roborock.setFanSpeed.useMutation({
-		onSuccess: () => {
+		onMutate: ({ speed }) => {
+			// Optimistic update
+			updateDevice(deviceId, { fanSpeed: speed });
+		},
+		onSuccess: (result) => {
+			utils.roborock.devices.invalidate();
+			if (!result.success && result.error) {
+				console.warn("Set fan speed failed:", result.error);
+			}
+		},
+		onError: () => {
+			// Revert on error by refetching
 			utils.roborock.devices.invalidate();
 		},
 	});
 
 	const waterLevelMutation = trpc.roborock.setWaterLevel.useMutation({
-		onSuccess: () => {
+		onMutate: ({ level }) => {
+			// Optimistic update
+			updateDevice(deviceId, { waterLevel: level });
+		},
+		onSuccess: (result) => {
+			utils.roborock.devices.invalidate();
+			if (!result.success && result.error) {
+				console.warn("Set water level failed:", result.error);
+			}
+		},
+		onError: () => {
 			utils.roborock.devices.invalidate();
 		},
 	});
@@ -58,6 +150,8 @@ export function useRoborockCommands(deviceId: string) {
 			commandMutation.isPending ||
 			fanSpeedMutation.isPending ||
 			waterLevelMutation.isPending,
+		lastError: commandMutation.data?.error ?? null,
+		lastErrorCategory: commandMutation.data?.errorCategory ?? null,
 	};
 }
 

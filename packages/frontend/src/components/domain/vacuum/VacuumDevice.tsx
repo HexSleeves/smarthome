@@ -1,8 +1,11 @@
 import type { RoborockDeviceState } from "@smarthome/shared";
-import { AlertTriangle, Battery, Wind } from "lucide-react";
+import { AlertTriangle, Battery, Radio, Wind } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useRoborockDeviceLastUpdated } from "@/stores/roborock";
+import { cn } from "@/lib/utils";
 import { VacuumControls } from "./VacuumControls";
 import { VacuumFanSpeed } from "./VacuumFanSpeed";
 import { VacuumStats } from "./VacuumStats";
@@ -15,15 +18,52 @@ type VacuumDeviceProps = {
 };
 
 export function VacuumDevice({ device, isAdmin }: VacuumDeviceProps) {
+	const lastUpdatedTimestamp = useRoborockDeviceLastUpdated(device.id);
+	const lastUpdated = lastUpdatedTimestamp ? new Date(lastUpdatedTimestamp) : undefined;
+
+	// Track if we recently received an update (for visual feedback)
+	const [recentUpdate, setRecentUpdate] = useState(false);
+
+	useEffect(() => {
+		if (lastUpdated) {
+			setRecentUpdate(true);
+			const timer = setTimeout(() => setRecentUpdate(false), 2000);
+			return () => clearTimeout(timer);
+		}
+	}, [lastUpdated]);
+
 	return (
-		<Card>
+		<Card
+			className={cn(
+				"transition-all duration-300",
+				recentUpdate && "ring-2 ring-primary/50",
+			)}
+		>
 			<CardHeader className="pb-4">
 				<div className="flex items-center gap-4">
 					<div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
 						<Wind className="w-8 h-8 text-primary" />
 					</div>
 					<div className="flex-1">
-						<h2 className="text-xl font-semibold">{device.name}</h2>
+						<div className="flex items-center gap-2">
+							<h2 className="text-xl font-semibold">{device.name}</h2>
+							{/* Live indicator */}
+							<div
+								className={cn(
+									"flex items-center gap-1 text-xs",
+									recentUpdate ? "text-primary" : "text-muted-foreground",
+								)}
+								title={lastUpdated ? `Last update: ${lastUpdated.toLocaleTimeString()}` : ""}
+							>
+								<Radio
+									className={cn(
+										"w-3 h-3",
+										recentUpdate && "animate-pulse",
+									)}
+								/>
+								<span className="sr-only">Live</span>
+							</div>
+						</div>
 						<p className="text-sm text-muted-foreground">{device.model}</p>
 					</div>
 					<div className="text-right">

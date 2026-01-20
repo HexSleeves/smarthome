@@ -3,8 +3,6 @@ import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import mqtt from "mqtt";
-import type { MqttClient } from "mqtt";
 import pino from "pino";
 import { config } from "../config.js";
 
@@ -189,47 +187,6 @@ const DPS_STATES_CLEANING = new Set([5, 7, 11, 16, 17, 18]);
 const DPS_STATES_RETURNING = new Set([6, 15]);
 const DPS_STATES_ERROR = new Set([12, 13]);
 
-// MQTT Protocol constants
-const MQTT_PROTOCOL_VERSION = 101;
-const MQTT_REQUEST_TIMEOUT = 10000; // 10 seconds
-
-// MQTT Message structure
-interface MqttRequest {
-	protocol: number;
-	timestamp: number;
-	security: {
-		endpoint: string;
-		nonce: string;
-	};
-	payload: string; // base64 encoded encrypted payload
-}
-
-interface MqttRpcRequest {
-	id: number;
-	method: string;
-	params?: RoborockCommandParam[];
-}
-
-interface MqttRpcResponse {
-	id: number;
-	result?: unknown;
-	error?: { code: number; message: string };
-}
-
-interface PendingRequest {
-	resolve: (value: MqttRpcResponse) => void;
-	reject: (error: Error) => void;
-	timeout: NodeJS.Timeout;
-}
-
-interface MqttConnection {
-	client: MqttClient;
-	rriot: RRiot;
-	mqttUser: string; // Hashed username used in topic names
-	deviceKeys: Map<string, string>; // deviceId -> localKey
-	pendingRequests: Map<number, PendingRequest>;
-	requestId: number;
-}
 
 /**
  * Determine device status from DPS state value.
@@ -259,70 +216,13 @@ function determineDeviceStatus(
 	return getStatusFromDpsState(dpsState);
 }
 
-/**
- * Encrypt data for MQTT communication using AES-128-ECB.
- * Roborock uses a specific encryption scheme with MD5-derived keys.
- */
-function encryptMqttPayload(data: string, localKey: string): Buffer {
-	// localKey is exactly 16 bytes and used directly as AES key
-	const key = Buffer.from(localKey, "utf8");
-	if (key.length !== 16) {
-		throw new Error(`Invalid localKey length: ${key.length}, expected 16`);
-	}
-	
-	// Pad data to 16-byte boundary (PKCS7)
-	const dataBuffer = Buffer.from(data, "utf8");
-	const padLength = 16 - (dataBuffer.length % 16);
-	const paddedData = Buffer.concat([
-		dataBuffer,
-		Buffer.alloc(padLength, padLength),
-	]);
-	
-	// Encrypt using AES-128-ECB
-	const cipher = crypto.createCipheriv("aes-128-ecb", key, null);
-	cipher.setAutoPadding(false);
-	return Buffer.concat([cipher.update(paddedData), cipher.final()]);
-}
-
-/**
- * Decrypt data from MQTT communication using AES-128-ECB.
- */
-function decryptMqttPayload(encryptedData: Buffer, localKey: string): string {
-	// localKey is exactly 16 bytes and used directly as AES key
-	const key = Buffer.from(localKey, "utf8");
-	if (key.length !== 16) {
-		throw new Error(`Invalid localKey length: ${key.length}, expected 16`);
-	}
-	
-	// Decrypt using AES-128-ECB
-	const decipher = crypto.createDecipheriv("aes-128-ecb", key, null);
-	decipher.setAutoPadding(false);
-	const decrypted = Buffer.concat([
-		decipher.update(encryptedData),
-		decipher.final(),
-	]);
-	
-	// Remove PKCS7 padding
-	const padLength = decrypted[decrypted.length - 1];
-	if (padLength > 0 && padLength <= 16) {
-		return decrypted.subarray(0, decrypted.length - padLength).toString("utf8");
-	}
-	return decrypted.toString("utf8");
-}
-
-/**
- * Generate MQTT endpoint nonce for security.
- */
-function generateMqttNonce(): string {
-	return crypto.randomBytes(16).toString("hex");
-}
 
 class RoborockService extends EventEmitter {
 	private readonly credentials = new Map<string, RoborockCredentials>();
 	private readonly deviceStates = new Map<string, RoborockDeviceState>();
 	private readonly pollingIntervals = new Map<string, NodeJS.Timeout>();
 	private readonly pendingAuth = new Map<string, PendingAuth>();
-	private readonly mqttConnections = new Map<string, MqttConnection>();
+
 	private readonly deviceLocalKeys = new Map<string, string>(); // deviceId -> localKey
 
 	// Generate a unique device identifier (persisted per user session)
@@ -903,7 +803,7 @@ class RoborockService extends EventEmitter {
 					);
 				}
 
-				// Store localKey for MQTT encryption
+				// Store localKey for Python bridge commands
 				if (device.localKey) {
 					this.deviceLocalKeys.set(deviceId, device.localKey);
 				}
@@ -1034,176 +934,6 @@ class RoborockService extends EventEmitter {
 		return Array.from(this.deviceStates.entries())
 			.filter(([key]) => key.startsWith(prefix))
 			.map(([, state]) => state);
-	}
-
-	/**
-	 * Connect to MQTT broker for a user.
-	 */
-	private async connectMqtt(userId: string): Promise<MqttConnection | null> {
-		const existing = this.mqttConnections.get(userId);
-		if (existing?.client.connected) {
-			return existing;
-		}
-
-		const creds = this.credentials.get(userId);
-		if (!creds?.rriot?.r?.m) {
-			log.warn({ userId }, "No MQTT endpoint in credentials");
-			return null;
-		}
-
-		const rriot = creds.rriot;
-		const mqttHost = rriot.r.m as string; // Already checked above
-		const mqttEndpoint = mqttHost.startsWith("ssl://")
-			? mqttHost
-			: `ssl://${mqttHost}`;
-
-		log.info(
-			{ userId, mqttEndpoint, rriotUser: rriot.u },
-			"Connecting to MQTT broker",
-		);
-
-		return new Promise((resolve) => {
-			try {
-				// MQTT credentials based on python-roborock implementation
-				// Username: md5(rriot.u + ":" + rriot.k)[2:10]
-				// Password: md5(rriot.s + ":" + rriot.k)[16:]
-				const userHash = crypto
-					.createHash("md5")
-					.update(`${rriot.u}:${rriot.k}`)
-					.digest("hex");
-				const passHash = crypto
-					.createHash("md5")
-					.update(`${rriot.s}:${rriot.k}`)
-					.digest("hex");
-				const mqttUser = userHash.substring(2, 10);
-				const mqttPassword = passHash.substring(16);
-				// Client ID should be unique per connection
-				const clientId = `${mqttUser}_${Date.now()}`;
-
-				log.info(
-					{ mqttUser, clientId },
-					"MQTT credentials generated",
-				);
-
-				const client = mqtt.connect(mqttEndpoint, {
-						clientId,
-						username: mqttUser,
-						password: mqttPassword,
-						clean: true,
-						connectTimeout: 10000,
-						keepalive: 60,
-						reconnectPeriod: 0, // Don't auto-reconnect, we handle it manually
-						rejectUnauthorized: false, // Roborock uses self-signed certs
-					});
-
-				const connection: MqttConnection = {
-						client,
-						rriot,
-						mqttUser,
-						deviceKeys: new Map(),
-						pendingRequests: new Map(),
-						requestId: 1,
-					};
-
-					client.on("connect", () => {
-						log.info({ userId }, "MQTT connected");
-						// Subscribe to response topics for all devices
-						// Topic format: rr/m/o/{rriot.u}/{mqttUser}/{deviceId}
-						for (const [key] of this.deviceStates) {
-							if (key.startsWith(`${userId}:`)) {
-								const deviceId = key.split(":")[1];
-								const topic = `rr/m/o/${rriot.u}/${mqttUser}/${deviceId}`;
-								client.subscribe(topic, (err) => {
-									if (err) {
-										log.error({ err, topic }, "Failed to subscribe");
-									} else {
-										log.info({ topic }, "Subscribed to device topic");
-									}
-								});
-							}
-						}
-						this.mqttConnections.set(userId, connection);
-						resolve(connection);
-					});
-
-				client.on("message", (topic, message) => {
-					this.handleMqttMessage(userId, topic, message);
-				});
-
-				client.on("error", (err) => {
-					log.error({ userId, err }, "MQTT error");
-				});
-
-				client.on("close", () => {
-					log.info({ userId }, "MQTT connection closed");
-					this.mqttConnections.delete(userId);
-				});
-
-				// Timeout if connection doesn't establish
-				setTimeout(() => {
-					if (!client.connected) {
-						log.warn({ userId }, "MQTT connection timeout");
-						client.end();
-						resolve(null);
-					}
-				}, 15000);
-			} catch (err) {
-				log.error({ userId, err }, "Failed to create MQTT connection");
-				resolve(null);
-			}
-		});
-	}
-
-	/**
-	 * Handle incoming MQTT messages.
-	 */
-	private handleMqttMessage(
-		userId: string,
-		topic: string,
-		message: Buffer,
-	): void {
-		try {
-			// Extract deviceId from topic: rr/m/o/{rriot.u}/{mqttUser}/{deviceId}
-			const parts = topic.split("/");
-			if (parts.length < 6) return;
-			const deviceId = parts[5];
-
-			const localKey = this.deviceLocalKeys.get(deviceId);
-			if (!localKey) {
-				log.warn({ deviceId }, "No localKey for device, cannot decrypt");
-				return;
-			}
-
-			// Parse the MQTT message envelope
-			const envelope = JSON.parse(message.toString()) as MqttRequest;
-			if (!envelope.payload) {
-				log.warn({ topic }, "No payload in MQTT message");
-				return;
-			}
-
-			// Decrypt the payload
-			const encryptedPayload = Buffer.from(envelope.payload, "base64");
-			const decryptedPayload = decryptMqttPayload(encryptedPayload, localKey);
-			const response = JSON.parse(decryptedPayload) as MqttRpcResponse;
-
-			log.info(
-				{ deviceId, responseId: response.id },
-				"Received MQTT response",
-			);
-
-			// Find and resolve the pending request
-			const connection = this.mqttConnections.get(userId);
-			if (connection) {
-				const pending = connection.pendingRequests.get(response.id);
-				if (pending) {
-					clearTimeout(pending.timeout);
-					connection.pendingRequests.delete(response.id);
-					pending.resolve(response);
-				}
-			}
-		} catch (err) {
-			log.error({ err, topic }, "Failed to handle MQTT message");
-		}
 	}
 
 	/**
@@ -1377,14 +1107,6 @@ class RoborockService extends EventEmitter {
 	disconnect(userId: string): void {
 		this.stopPolling(userId);
 		this.credentials.delete(userId);
-		
-		// Close MQTT connection
-		const mqttConn = this.mqttConnections.get(userId);
-		if (mqttConn) {
-			mqttConn.client.end();
-			this.mqttConnections.delete(userId);
-		}
-		
 		for (const key of this.deviceStates.keys()) {
 			if (key.startsWith(`${userId}:`)) {
 				const deviceId = key.split(":")[1];
@@ -1403,14 +1125,6 @@ class RoborockService extends EventEmitter {
 
 	shutdown(): void {
 		for (const userId of this.pollingIntervals.keys()) this.stopPolling(userId);
-		
-		// Close all MQTT connections
-		for (const [userId, conn] of this.mqttConnections) {
-			conn.client.end();
-			log.info({ userId }, "MQTT connection closed during shutdown");
-		}
-		
-		this.mqttConnections.clear();
 		this.deviceLocalKeys.clear();
 		this.credentials.clear();
 		this.deviceStates.clear();

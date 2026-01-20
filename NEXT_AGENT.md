@@ -197,10 +197,17 @@ Latest commit: `feat(roborock): implement MQTT commands via python-roborock brid
 - Fixed stream cleanup on failure
 - Updated shared types with error fields
 
-### ✅ WebSocket improvements
+### ✅ WebSocket improvements (backend)
 - Added subscription tracking to prevent duplicates
 - Added `unsubscribe:ring` message handler
 - Refactored Ring subscription into helper functions
+
+### ✅ Real-time frontend updates via WebSocket
+- Created Zustand store (`stores/roborock.ts`) for Roborock device state
+- Updated `useRoborockDevices` hook to sync tRPC data with store
+- Subscribed to `roborock:status` WebSocket events for real-time updates
+- Added visual feedback: live indicator icon + ring highlight on updates
+- Reduced polling to 30s as WebSocket provides real-time data
 
 ## Next Steps
 
@@ -208,9 +215,8 @@ Latest commit: `feat(roborock): implement MQTT commands via python-roborock brid
 
 1. **Add more Roborock commands to frontend**
    - Room-specific cleaning (`app_segment_clean`)
-   - Fan speed control (`set_custom_mode`) - backend done, need frontend UI
-   - Water level control (`set_water_box_custom_mode`) - backend done, need frontend UI
-   - Get clean history
+   - Get clean history visualization
+   - Fan speed and water level controls already working!
 
 2. **Add retry logic for transient failures**
    - Retry on command_timeout errors

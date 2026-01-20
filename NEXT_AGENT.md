@@ -1,198 +1,167 @@
-# Next Agent Instructions - Roborock Integration Fix
+# Smart Home Project - Agent Context
 
-## Current State
+## Project Overview
 
-The Roborock integration is **partially working** but cannot fetch device lists due to missing HAWK authentication.
+A smart home dashboard application with support for Roborock vacuums and Ring cameras.
 
-### What Works
-- User can authenticate with Roborock via 2FA (v4 API)
-- `getHomeDetail` API call succeeds and returns `rrHomeId`
-- Token is stored in database
-- Authorization header format fixed (was using `Bearer` prefix, now uses raw token)
+**Stack:**
+- Backend: Node.js + Fastify + tRPC + SQLite (packages/backend)
+- Frontend: React + Vite + TailwindCSS (packages/frontend)
+- Monorepo with shared types (packages/shared)
 
-### What Doesn't Work
-- Device list is always empty (0 devices found)
-- Cannot send commands to vacuum
-- Cannot get device status
+**Location:** `/home/exedev/smarthome`
 
-## Root Cause
+## Recent Work: Roborock MQTT Commands
 
-The Roborock API has a two-tier architecture:
+### Problem Solved
+Roborock commands (start, stop, find, etc.) require MQTT protocol with a complex binary message format. Initial attempts to implement this in TypeScript failed due to protocol complexity.
 
-1. **Basic API** (`https://usiot.roborock.com/api/v1/*`)
-   - Used for: login, getHomeDetail
-   - Auth: Simple token in `Authorization` header
-   - ✅ This works
+### Solution Implemented
+Used **python-roborock** library via a Python bridge script:
 
-2. **IoT API** (`https://{rriot.r.a}/user/homes/{homeId}`)
-   - Used for: device list, commands, status
-   - Auth: **HAWK authentication** using `rriot` credentials
-   - ❌ Not implemented
-
-The current implementation uses **v4 login API** which returns:
-```json
-{
-  "token": "...",
-  "userid": "...",
-  "rruid": "..."
-}
+```
+Node.js (tRPC) → spawn Python subprocess → python-roborock → MQTT → Device
 ```
 
-But the **v1 login API** returns additional `rriot` data needed for HAWK auth:
-```json
-{
-  "token": "...",
-  "rriot": {
-    "u": "user_id",
-    "s": "secret",
-    "h": "hmac_key", 
-    "k": "key",
-    "r": {
-      "a": "api.roborock.com",
-      "m": "mqtt.roborock.com",
-      "l": "..."
-    }
-  }
-}
+### Key Files
+
+1. **`packages/backend/scripts/roborock_bridge.py`**
+   - Python script that receives JSON via stdin
+   - Uses python-roborock's MQTT session and V1 protocol
+   - Returns JSON results to stdout
+   - Requires: `packages/backend/.venv` with python-roborock installed
+
+2. **`packages/backend/src/services/roborock.ts`**
+   - `sendCommand()` - calls Python bridge for commands
+   - `callPythonBridge()` - spawns Python subprocess
+   - `connectMqtt()` - establishes MQTT connection (still present but unused for commands)
+   - `discoverDevices()` - fetches devices via REST API
+   - Stores credentials in `this.credentials` Map
+   - Stores device localKeys in `this.deviceLocalKeys` Map
+
+3. **`packages/backend/src/trpc/routers/roborock.ts`**
+   - tRPC router with endpoints: status, devices, auth, command, etc.
+   - `command` mutation calls `roborockService.sendCommand()`
+
+### Python Virtual Environment
+
+```bash
+cd packages/backend
+source .venv/bin/activate
+# python-roborock and dependencies installed
 ```
 
-## Required Changes
+### Working Commands
+- `find_me` (find robot)
+- `app_start` (start cleaning)
+- `app_stop` (stop cleaning)
+- `app_pause` (pause cleaning)
+- `app_charge` (return to dock)
 
-### 1. Update Credentials Interface
-File: `packages/backend/src/services/roborock.ts`
+### Authentication Flow
+1. User provides email via frontend
+2. Backend calls Roborock API to send 2FA code
+3. User enters code
+4. Backend receives `rriot` credentials (contains MQTT auth info)
+5. Credentials stored encrypted in SQLite `device_credentials` table
+6. On startup, credentials loaded and devices discovered via REST API
+
+### Important Data Structures
 
 ```typescript
+interface RRiot {
+  u: string;  // user id
+  s: string;  // secret
+  h: string;  // hmac key
+  k: string;  // key
+  r: RRiotReference;  // { a: api_url, m: mqtt_url }
+}
+
 interface RoborockCredentials {
   token: string;
   userId: string;
   homeId: string;
   rruid?: string;
   baseURL: string;
-  // ADD these fields:
-  rriot?: {
-    u: string;
-    s: string;
-    h: string;
-    k: string;
-    r: {
-      a: string;  // IoT API endpoint
-      m?: string; // MQTT endpoint
-      l?: string;
-    };
-  };
+  rriot?: RRiot;
 }
 ```
 
-### 2. Switch to v1 Login API
+### MQTT Topic Format
+- Subscribe: `rr/m/o/{rriot.u}/{mqtt_user}/{device_id}`
+- Publish: `rr/m/i/{rriot.u}/{mqtt_user}/{device_id}`
+- `mqtt_user` = `md5(rriot.u + ":" + rriot.k)[2:10]`
 
-Replace current v4 endpoints:
-- `api/v4/email/code/send` → `api/v1/sendEmailCode`
-- `api/v4/auth/email/login/code` → `api/v1/loginWithCode`
+## Server Configuration
 
-v1 sendEmailCode:
-```
-POST /api/v1/sendEmailCode
-Params: username={email}&type=auth
-Headers: header_clientid={md5(email+deviceId).base64}
-```
+- Backend runs on port 3000
+- Nginx proxies port 8000 → 3000
+- Access via: https://noon-disk.exe.xyz:8000
 
-v1 loginWithCode:
-```
-POST /api/v1/loginWithCode
-Params: username={email}&verifycode={code}&verifycodetype=AUTH_EMAIL_CODE
-Headers: header_clientid={md5(email+deviceId).base64}
+### Starting the Backend
+
+```bash
+cd /home/exedev/smarthome/packages/backend
+PORT=3000 npm exec tsx src/index.ts
 ```
 
-### 3. Implement HAWK Authentication
+### Database
 
-For IoT API calls, generate HAWK auth header:
+- SQLite at `packages/backend/data/smarthome.db`
+- Tables: users, devices, device_credentials, refresh_tokens, etc.
 
-```typescript
-function getHawkAuthentication(rriot: RRiot, url: string): string {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const nonce = crypto.randomBytes(6).toString('base64url');
-  
-  const prestr = [
-    rriot.u,
-    rriot.s,
-    nonce,
-    timestamp.toString(),
-    crypto.createHash('md5').update(url).digest('hex'),
-    '',
-    ''
-  ].join(':');
-  
-  const mac = crypto
-    .createHmac('sha256', rriot.h)
-    .update(prestr)
-    .digest('base64');
-  
-  return `Hawk id="${rriot.u}", s="${rriot.s}", ts="${timestamp}", nonce="${nonce}", mac="${mac}"`;
-}
+## Environment
+
+```bash
+# packages/backend/.env
+PORT=3000
+HOST=0.0.0.0
+JWT_SECRET=dev-jwt-secret-change-in-production
+COOKIE_SECRET=dev-cookie-secret-change-in-production
+ENCRYPTION_SECRET=dev-encryption-secret-change-in-production
+CORS_ORIGIN=http://localhost:5173
+LOG_LEVEL=info
 ```
 
-### 4. Update Device Discovery
+## Test User
 
-```typescript
-async discoverDevices(userId: string): Promise<void> {
-  const creds = this.credentials.get(userId);
-  if (!creds?.rriot) {
-    log.warn('Missing rriot credentials - cannot fetch devices');
-    return;
-  }
+- Email: `lecoqjacob@gmail.com`
+- Password: `adminpassword`
+- Role: admin
 
-  // Get home ID from basic API
-  const homeId = await this.getHomeId(creds);
-  
-  // Fetch devices from IoT API with HAWK auth
-  const iotApiUrl = `https://${creds.rriot.r.a}`;
-  const devicesPath = `/user/homes/${homeId}`;
-  
-  const response = await fetch(`${iotApiUrl}${devicesPath}`, {
-    headers: {
-      Authorization: this.getHawkAuthentication(creds.rriot, devicesPath)
-    }
-  });
-  
-  const data = await response.json();
-  // data.result.devices contains the device list
-}
+## Known Issues / TODOs
+
+1. **Ring integration** - Basic support exists but may need work
+2. **MQTT connection cleanup** - Old TypeScript MQTT code still in roborock.ts (unused but present)
+3. **Python bridge timeout** - Currently 60s, may need adjustment for slow operations
+4. **Error handling** - Python bridge errors could be more descriptive
+
+## Useful Commands
+
+```bash
+# Check backend logs
+tail -f /tmp/backend.log
+
+# Test Roborock command
+TOKEN=$(curl -s 'http://localhost:3000/api/trpc/auth.login?batch=1' \
+  -H 'content-type: application/json' \
+  --data-raw '{"0":{"json":{"email":"lecoqjacob@gmail.com","password":"adminpassword"}}}' | jq -r '.[0].result.data.json.accessToken')
+
+curl -s 'http://localhost:3000/api/trpc/roborock.command?batch=1' \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  --data-raw '{"0":{"json":{"deviceId":"DEVICE_ID","command":"find"}}}'
+
+# Test Python bridge directly
+cd packages/backend
+source .venv/bin/activate
+echo '{"rriot": {...}, "device_id": "...", "local_key": "...", "command": "find_me"}' | python scripts/roborock_bridge.py command
 ```
 
-## Reference Implementation
+## Code Quality
 
-See the Python implementation for reference:
-- https://github.com/Lash-L/python-roborock/blob/main/roborock/web_api.py
-- Key functions: `code_login`, `get_home_data`, `_get_hawk_authentication`
+- SonarQube warning was fixed by extracting `getStatusFromDpsState()` and `determineDeviceStatus()` helper functions to reduce cognitive complexity in roborock.ts
 
-## Files to Modify
+## Git Status
 
-1. `packages/backend/src/services/roborock.ts` - Main service file
-   - Update `RoborockCredentials` interface
-   - Change login to use v1 API
-   - Store `rriot` from login response
-   - Implement HAWK auth function
-   - Update `discoverDevices` to use IoT API
-
-## Testing
-
-After changes:
-1. Clear existing Roborock credentials: 
-   ```sql
-   DELETE FROM device_credentials WHERE provider='roborock';
-   ```
-2. Restart service: `sudo systemctl restart smarthome`
-3. Re-authenticate via Settings page
-4. Check logs: `journalctl -u smarthome -f | grep roborock`
-5. Verify devices appear in UI
-
-## Current Logs Show
-
-```
-Roborock getHomeDetail response: {"code":200,"data":{"rrHomeId":5207156,...}}
-Home found. Device list requires HAWK authentication
-Roborock devices endpoint response: {"code":1002,"msg":"parameter error"}
-Device discovery complete: deviceCount=0
-```
-
-The user has home ID 5207156 but no devices are returned because we can't call the IoT API without HAWK auth.
+Latest commit: `feat(roborock): implement MQTT commands via python-roborock bridge`

@@ -5,19 +5,26 @@
 A smart home dashboard application with support for Roborock vacuums and Ring cameras.
 
 **Stack:**
-- Backend: Node.js + Fastify + tRPC + SQLite (packages/backend)
+- Backend: **Bun** + Fastify + tRPC + SQLite (packages/backend)
 - Frontend: React + Vite + TailwindCSS (packages/frontend)
 - Monorepo with shared types (packages/shared)
+- Database: bun:sqlite (built-in, faster than better-sqlite3)
 
 **Location:** `/home/exedev/smarthome`
 
 ## Recent Work: Comprehensive Improvements
 
+### Bun Runtime Migration
+- Migrated from Node.js/tsx to Bun runtime for ~3x faster startup
+- Switched from better-sqlite3 to bun:sqlite (built-in, zero dependencies)
+- Updated all database queries to use bun:sqlite positional parameter API
+- Updated systemd service to use bun binary directly
+
 ### Roborock MQTT via Python Bridge
 Roborock commands use MQTT protocol via **python-roborock** library:
 
 ```
-Node.js (tRPC) → spawn Python subprocess → python-roborock → MQTT → Device
+Bun (tRPC) → spawn Python subprocess → python-roborock → MQTT → Device
 ```
 
 ### Key Files

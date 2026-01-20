@@ -31,6 +31,77 @@ const DEFAULT_HEADERS = {
 	header_phonesystem: "Android",
 };
 
+// API Response Types
+interface RoborockApiResponse<T = unknown> {
+	code: number;
+	msg: string;
+	data: T | null;
+}
+
+interface GetUrlByEmailData {
+	url: string;
+	country: string | null;
+	countrycode: string | null;
+}
+
+interface SignKeyData {
+	k: string;
+}
+
+interface LoginData {
+	token: string;
+	userid?: string;
+	uid?: number;
+	rruid?: string;
+	rriot?: RRiot;
+}
+
+interface HomeDetailData {
+	rrHomeId: number;
+}
+
+// IoT API Response Types
+interface IoTApiResponse<T = unknown> {
+	success: boolean;
+	result: T | null;
+}
+
+interface DeviceStatus {
+	[key: string]: number;
+}
+
+interface HomeDevice {
+	duid: string;
+	name: string;
+	localKey: string;
+	productId: string;
+	fv: string | null;
+	online: boolean;
+	model?: string;
+	deviceStatus: DeviceStatus | null;
+	activeTime?: number;
+	createTime?: number;
+	timeZoneId?: string;
+	sn?: string;
+}
+
+interface HomeData {
+	id: number;
+	name: string;
+	devices: HomeDevice[];
+}
+
+// Clean history record type
+interface CleanHistoryRecord {
+	id: number;
+	startTime: number;
+	endTime: number;
+	duration: number;
+	area: number;
+	errorCode: number;
+	completed: boolean;
+}
+
 // RRiot credentials for HAWK authentication
 interface RRiotReference {
 	a: string; // IoT API endpoint
@@ -217,7 +288,7 @@ class RoborockService extends EventEmitter {
 					},
 				);
 
-				const data = await response.json();
+				const data = (await response.json()) as RoborockApiResponse<GetUrlByEmailData>;
 				log.info(
 					{
 						code: data.code,
@@ -281,7 +352,7 @@ class RoborockService extends EventEmitter {
 			},
 		});
 
-		const data = await response.json();
+		const data = (await response.json()) as RoborockApiResponse<SignKeyData>;
 		log.info({ code: data.code, hasK: !!data.data?.k }, "Sign key response");
 
 		if (data.code !== 200 || !data.data?.k) {
@@ -366,7 +437,7 @@ class RoborockService extends EventEmitter {
 				body: body.toString(),
 			});
 
-			const data = await response.json();
+			const data = (await response.json()) as RoborockApiResponse<null>;
 			log.info(
 				{ code: data.code, msg: data.msg },
 				"v4 Send email code response",
@@ -454,7 +525,7 @@ class RoborockService extends EventEmitter {
 				body: body.toString(),
 			});
 
-			const loginData = await loginResponse.json();
+			const loginData = (await loginResponse.json()) as RoborockApiResponse<LoginData>;
 			log.info(
 				{
 					code: loginData.code,
@@ -600,7 +671,7 @@ class RoborockService extends EventEmitter {
 			const homeResponse = await fetch(`${baseURL}/${API_V1_HOME_DETAIL}`, {
 				headers: { Authorization: creds.token },
 			});
-			const homeData = await homeResponse.json();
+			const homeData = (await homeResponse.json()) as RoborockApiResponse<HomeDetailData>;
 			log.info(
 				{
 					status: homeResponse.status,
@@ -656,7 +727,7 @@ class RoborockService extends EventEmitter {
 				},
 			});
 
-			const devicesData = await devicesResponse.json();
+			const devicesData = (await devicesResponse.json()) as IoTApiResponse<HomeData>;
 			log.info(
 				{
 					status: devicesResponse.status,
@@ -667,12 +738,12 @@ class RoborockService extends EventEmitter {
 				"Roborock IoT API devices response",
 			);
 
-			if (!devicesData.success) {
+			if (!devicesData.success || !devicesData.result) {
 				log.error({ devicesData }, "IoT API returned error");
 				return;
 			}
 
-			const devices = devicesData.result?.devices || [];
+			const devices: HomeDevice[] = devicesData.result.devices || [];
 
 			for (const device of devices) {
 				// Log full device data for debugging
@@ -777,14 +848,14 @@ class RoborockService extends EventEmitter {
 				return;
 			}
 
-			const data = await response.json();
-			if (!data.success) return;
+			const data = (await response.json()) as IoTApiResponse<HomeData>;
+			if (!data.success || !data.result) return;
 
-			const device = data.result?.devices?.find((d: { duid: string }) => d.duid === deviceId);
+			const device = data.result.devices?.find((d) => d.duid === deviceId);
 			if (!device) return;
 
 			// Parse device_status
-			const deviceStatus = device.deviceStatus || {};
+			const deviceStatus: DeviceStatus = device.deviceStatus || {};
 			const dpsState = deviceStatus["121"];
 			const dpsBattery = deviceStatus["122"];
 
@@ -844,42 +915,32 @@ class RoborockService extends EventEmitter {
 			.map(([, state]) => state);
 	}
 
+	/**
+	 * Send a command to a Roborock device.
+	 * NOTE: Commands require MQTT implementation which is not yet available.
+	 * This is a placeholder that will need to be updated when MQTT is implemented.
+	 */
 	async sendCommand(
 		userId: string,
 		deviceId: string,
 		command: string,
-		params: RoborockCommandParam[] = [],
+		_params: RoborockCommandParam[] = [],
 	): Promise<boolean> {
 		const creds = this.credentials.get(userId);
-		if (!creds) return false;
-
-		const baseURL = `https://${creds.baseURL || "usiot.roborock.com"}`;
-		try {
-			const response = await fetch(
-				`${baseURL}/api/v1/user/devices/${deviceId}/command`,
-				{
-					method: "POST",
-					headers: {
-						Authorization: creds.token,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({ method: command, params }),
-				},
-			);
-
-			const data = await response.json();
-			if (data.code === 200 || data.result === "ok") {
-				const device = deviceQueries.findByType
-					.all(userId, "roborock")
-					.find((d) => d.device_id === deviceId);
-				if (device) createEvent(device.id, "command", { command, params });
-				setTimeout(() => this.refreshDeviceStatus(userId, deviceId), 2000);
-				return true;
-			}
-			return false;
-		} catch {
+		if (!creds) {
+			log.warn({ userId, deviceId, command }, "Cannot send command: no credentials");
 			return false;
 		}
+
+		// TODO: Implement MQTT-based command sending
+		// Roborock devices require MQTT protocol for commands
+		// The REST API endpoints for commands do not exist
+		log.warn(
+			{ userId, deviceId, command },
+			"Command sending not yet implemented - requires MQTT",
+		);
+		
+		return false;
 	}
 
 	startCleaning(userId: string, deviceId: string) {
@@ -928,22 +989,14 @@ class RoborockService extends EventEmitter {
 		return null;
 	}
 
-	async getCleanHistory(userId: string, deviceId: string): Promise<unknown[]> {
-		const creds = this.credentials.get(userId);
-		if (!creds) return [];
-		const baseURL = `https://${creds.baseURL || "usiot.roborock.com"}`;
-		try {
-			const response = await fetch(
-				`${baseURL}/api/v1/user/devices/${deviceId}/clean_summary`,
-				{
-					headers: { Authorization: creds.token },
-				},
-			);
-			const data = await response.json();
-			return data.result?.records || [];
-		} catch {
-			return [];
-		}
+	/**
+	 * Get cleaning history for a device.
+	 * NOTE: This requires MQTT implementation which is not yet available.
+	 */
+	async getCleanHistory(_userId: string, _deviceId: string): Promise<CleanHistoryRecord[]> {
+		// TODO: Implement via MQTT - REST endpoint does not exist
+		log.warn("getCleanHistory not yet implemented - requires MQTT");
+		return [];
 	}
 
 	isConnected(userId: string): boolean {

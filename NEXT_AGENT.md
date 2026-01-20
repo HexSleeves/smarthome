@@ -165,3 +165,69 @@ echo '{"rriot": {...}, "device_id": "...", "local_key": "...", "command": "find_
 ## Git Status
 
 Latest commit: `feat(roborock): implement MQTT commands via python-roborock bridge`
+
+## Next Steps
+
+### High Priority
+
+1. **Clean up unused MQTT code in roborock.ts**
+   - Remove `connectMqtt()`, `handleMqttMessage()`, and related TypeScript MQTT code
+   - Remove mqtt npm dependency if no longer needed
+   - Keep only the Python bridge approach
+
+2. **Add more Roborock commands to frontend**
+   - Room-specific cleaning (`app_segment_clean`)
+   - Fan speed control (`set_custom_mode`)
+   - Water level control (`set_water_box_custom_mode`)
+   - Get clean history
+
+3. **Improve error handling**
+   - Surface Python bridge errors to frontend with meaningful messages
+   - Add retry logic for transient MQTT failures
+   - Handle device offline scenarios gracefully
+
+### Medium Priority
+
+4. **Add device status polling via Python bridge**
+   - Currently status comes from REST API during discovery
+   - Could use Python bridge to get real-time status via MQTT
+   - Update `get_status` action in bridge script
+
+5. **Ring camera improvements**
+   - Verify live streaming works
+   - Add motion event notifications
+   - Test doorbell functionality
+
+6. **Frontend enhancements**
+   - Real-time status updates via WebSocket
+   - Map display for Roborock (if supported by device)
+   - Clean history visualization
+
+### Low Priority
+
+7. **Performance optimization**
+   - Consider keeping Python process alive instead of spawning per-command
+   - Could use a simple HTTP server in Python or Unix socket
+   - Would reduce latency from ~1s to ~100ms per command
+
+8. **Testing**
+   - Add integration tests for Roborock commands
+   - Mock the Python bridge for unit tests
+   - Add E2E tests for critical flows
+
+9. **Documentation**
+   - API documentation for tRPC endpoints
+   - Setup guide for new developers
+   - Deployment instructions
+
+### Technical Debt
+
+10. **Code cleanup**
+    - Remove unused imports and variables
+    - Fix any remaining ESLint/TypeScript warnings
+    - Consolidate duplicate code patterns
+
+11. **Security review**
+    - Audit credential storage
+    - Review JWT token handling
+    - Ensure proper input validation

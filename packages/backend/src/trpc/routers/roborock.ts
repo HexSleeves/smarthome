@@ -4,8 +4,19 @@ import type {
 } from "@smarthome/shared";
 import { z } from "zod";
 import { hasCredentials } from "../../db/queries.js";
-import { roborockService } from "../../services/roborock.js";
+import {
+	roborockService,
+	type CommandResult,
+	type RoborockErrorCategory,
+} from "../../services/roborock.js";
 import { adminProcedure, protectedProcedure, router } from "../trpc.js";
+
+// Response type for command mutations
+interface CommandResponse {
+	success: boolean;
+	error?: string;
+	errorCategory?: RoborockErrorCategory;
+}
 
 const commandSchema = z.object({
 	deviceId: z.string(),
@@ -81,12 +92,12 @@ export const roborockRouter = router({
 
 	command: adminProcedure
 		.input(commandSchema)
-		.mutation(async ({ ctx, input }) => {
+		.mutation(async ({ ctx, input }): Promise<CommandResponse> => {
 			const { deviceId, command } = input;
 			const s = roborockService;
 			const uid = ctx.user.id;
 
-			const actions: Record<string, () => Promise<boolean>> = {
+			const actions: Record<string, () => Promise<CommandResult>> = {
 				start: () => s.startCleaning(uid, deviceId),
 				pause: () => s.pauseCleaning(uid, deviceId),
 				stop: () => s.stopCleaning(uid, deviceId),
@@ -95,10 +106,11 @@ export const roborockRouter = router({
 			};
 
 			const result = await actions[command]();
-			if (!result) {
-				throw new Error("Command failed - check server logs for details");
-			}
-			return { success: true };
+			return {
+				success: result.success,
+				error: result.error,
+				errorCategory: result.errorCategory,
+			};
 		}),
 
 	setFanSpeed: adminProcedure
@@ -108,13 +120,17 @@ export const roborockRouter = router({
 				speed: z.enum(["quiet", "balanced", "turbo", "max"]),
 			}),
 		)
-		.mutation(async ({ ctx, input }) => {
-			await roborockService.setFanSpeed(
+		.mutation(async ({ ctx, input }): Promise<CommandResponse> => {
+			const result = await roborockService.setFanSpeed(
 				ctx.user.id,
 				input.deviceId,
 				input.speed,
 			);
-			return { success: true };
+			return {
+				success: result.success,
+				error: result.error,
+				errorCategory: result.errorCategory,
+			};
 		}),
 
 	setWaterLevel: adminProcedure
@@ -124,24 +140,32 @@ export const roborockRouter = router({
 				level: z.enum(["off", "low", "medium", "high"]),
 			}),
 		)
-		.mutation(async ({ ctx, input }) => {
-			await roborockService.setWaterLevel(
+		.mutation(async ({ ctx, input }): Promise<CommandResponse> => {
+			const result = await roborockService.setWaterLevel(
 				ctx.user.id,
 				input.deviceId,
 				input.level,
 			);
-			return { success: true };
+			return {
+				success: result.success,
+				error: result.error,
+				errorCategory: result.errorCategory,
+			};
 		}),
 
 	cleanRooms: adminProcedure
 		.input(z.object({ deviceId: z.string(), roomIds: z.array(z.number()) }))
-		.mutation(async ({ ctx, input }) => {
-			await roborockService.cleanRooms(
+		.mutation(async ({ ctx, input }): Promise<CommandResponse> => {
+			const result = await roborockService.cleanRooms(
 				ctx.user.id,
 				input.deviceId,
 				input.roomIds,
 			);
-			return { success: true };
+			return {
+				success: result.success,
+				error: result.error,
+				errorCategory: result.errorCategory,
+			};
 		}),
 
 	history: protectedProcedure

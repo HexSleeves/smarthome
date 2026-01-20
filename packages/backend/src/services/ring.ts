@@ -460,10 +460,10 @@ class RingService extends EventEmitter {
 			};
 		}
 
-		try {
-			const sessionId = `${deviceId}-${Date.now()}`;
-			const outputDir = join(HLS_OUTPUT_BASE, sessionId);
+		const sessionId = `${deviceId}-${Date.now()}`;
+		const outputDir = join(HLS_OUTPUT_BASE, sessionId);
 
+		try {
 			// Create output directory
 			if (!existsSync(outputDir)) {
 				mkdirSync(outputDir, { recursive: true });
@@ -488,7 +488,7 @@ class RingService extends EventEmitter {
 					"-profile:a",
 					"aac_low",
 				],
-				// Video - copy H264 directly (fast, but may have browser issues)
+				// Video - copy H264 directly (Ring uses H264 which is browser compatible)
 				video: ["-vcodec", "copy"],
 				output: [
 					"-f",
@@ -525,6 +525,14 @@ class RingService extends EventEmitter {
 			};
 		} catch (error) {
 			console.error("Failed to start HLS stream:", error);
+			// Clean up the output directory on failure
+			try {
+				if (existsSync(outputDir)) {
+					rmSync(outputDir, { recursive: true, force: true });
+				}
+			} catch (cleanupError) {
+				console.error("Failed to clean up stream directory:", cleanupError);
+			}
 			return null;
 		}
 	}

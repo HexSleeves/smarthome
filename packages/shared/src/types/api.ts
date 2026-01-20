@@ -39,11 +39,14 @@ export type RingAuthResponse = {
 	success: boolean;
 	requiresTwoFactor?: boolean;
 	prompt?: string;
+	error?: string;
 };
 
 export type Ring2FAResponse = {
 	success: boolean;
-	canRetry?: boolean;
+	requiresTwoFactor?: boolean;
+	prompt?: string;
+	error?: string;
 };
 
 export type RingDevicesResponse = {

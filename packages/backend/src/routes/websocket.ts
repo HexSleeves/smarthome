@@ -8,6 +8,7 @@ interface WsClient {
 	ws: WebSocket;
 	userId: string;
 	unsubscribers: (() => void)[];
+	subscriptions: Set<string>; // Track active subscriptions to prevent duplicates
 }
 
 const clients = new Map<WebSocket, WsClient>();
@@ -48,17 +49,13 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 				ws: socket,
 				userId: decoded.id,
 				unsubscribers: [],
+				subscriptions: new Set(),
 			};
 			clients.set(socket, client);
 
+			// Auto-subscribe to Ring events if connected
 			if (ringService.isConnected(decoded.id)) {
-				const unsub = ringService.subscribeToEvents(decoded.id, (event) => {
-					const { type: eventType, ...rest } = event;
-					if (socket.readyState === socket.OPEN) {
-						socket.send(JSON.stringify({ type: `ring:${eventType}`, ...rest }));
-					}
-				});
-				client.unsubscribers.push(unsub);
+				subscribeClientToRing(client);
 			}
 
 			socket.send(JSON.stringify({ type: "connected", userId: decoded.id }));
@@ -89,6 +86,50 @@ export async function websocketRoutes(fastify: FastifyInstance) {
 	);
 }
 
+/**
+ * Subscribe a client to Ring events if not already subscribed
+ */
+function subscribeClientToRing(client: WsClient): boolean {
+	// Prevent duplicate subscriptions
+	if (client.subscriptions.has("ring")) {
+		return false;
+	}
+
+	if (!ringService.isConnected(client.userId)) {
+		return false;
+	}
+
+	const unsub = ringService.subscribeToEvents(client.userId, (event) => {
+		const { type: eventType, ...rest } = event;
+		if (client.ws.readyState === client.ws.OPEN) {
+			client.ws.send(JSON.stringify({ type: `ring:${eventType}`, ...rest }));
+		}
+	});
+
+	client.unsubscribers.push(unsub);
+	client.subscriptions.add("ring");
+	return true;
+}
+
+/**
+ * Unsubscribe a client from Ring events
+ */
+function unsubscribeClientFromRing(client: WsClient): boolean {
+	if (!client.subscriptions.has("ring")) {
+		return false;
+	}
+
+	// Call all unsubscribers and clear them
+	// Note: This unsubscribes from ALL services, which is a limitation
+	// In a more complex system, we'd track per-service unsubscribers
+	for (const unsub of client.unsubscribers) {
+		unsub();
+	}
+	client.unsubscribers = [];
+	client.subscriptions.delete("ring");
+	return true;
+}
+
 function handleMessage(client: WsClient, message: WsIncomingMessage) {
 	const send = (msg: object) => {
 		if (client.ws.readyState === client.ws.OPEN) {
@@ -101,13 +142,19 @@ function handleMessage(client: WsClient, message: WsIncomingMessage) {
 			send({ type: "pong" });
 			break;
 		case "subscribe:ring":
-			if (ringService.isConnected(client.userId)) {
-				const unsub = ringService.subscribeToEvents(client.userId, (event) => {
-					const { type: eventType, ...rest } = event;
-					send({ type: `ring:${eventType}`, ...rest });
-				});
-				client.unsubscribers.push(unsub);
+			if (client.subscriptions.has("ring")) {
+				send({ type: "subscribed", service: "ring", alreadySubscribed: true });
+			} else if (subscribeClientToRing(client)) {
 				send({ type: "subscribed", service: "ring" });
+			} else {
+				send({ type: "error", message: "Ring not connected" });
+			}
+			break;
+		case "unsubscribe:ring":
+			if (unsubscribeClientFromRing(client)) {
+				send({ type: "unsubscribed", service: "ring" });
+			} else {
+				send({ type: "error", message: "Not subscribed to Ring" });
 			}
 			break;
 		default:

@@ -46,14 +46,15 @@ def create_rriot(rriot_data: dict) -> RRiot:
     )
 
 
-async def send_command_via_mqtt(
+async def send_mqtt_request(
     rriot: RRiot,
     device_id: str,
     local_key: str,
     command: str,
     params: list | None = None,
+    timeout: float = 30.0,
 ) -> dict[str, Any]:
-    """Send a command to a Roborock device via MQTT."""
+    """Send a request to a Roborock device via MQTT and wait for response."""
     mqtt_params = create_mqtt_params(rriot)
     session = RoborockMqttSession(mqtt_params)
     
@@ -99,7 +100,7 @@ async def send_command_via_mqtt(
         
         # Wait for response with timeout
         try:
-            response = await asyncio.wait_for(response_future, timeout=30.0)
+            response = await asyncio.wait_for(response_future, timeout=timeout)
             unsubscribe()
             
             if response.api_error:
@@ -116,6 +117,30 @@ async def send_command_via_mqtt(
         return {"success": False, "error": f"Unexpected error: {str(e)}"}
     finally:
         await session.close()
+
+
+async def get_device_status(
+    rriot: RRiot,
+    device_id: str,
+    local_key: str,
+) -> dict[str, Any]:
+    """Get the current status of a Roborock device."""
+    result = await send_mqtt_request(
+        rriot, device_id, local_key, "get_status", timeout=15.0
+    )
+    
+    if result.get("success") and result.get("result"):
+        # Parse status into a more friendly format
+        raw_status = result["result"]
+        if isinstance(raw_status, list) and len(raw_status) > 0:
+            raw_status = raw_status[0]
+        
+        return {
+            "success": True,
+            "status": raw_status,
+        }
+    
+    return result
 
 
 def main():
@@ -157,12 +182,27 @@ def main():
             print(json.dumps({"error": "Missing 'command' for command action"}), file=sys.stdout)
             sys.exit(1)
         
-        result = asyncio.run(send_command_via_mqtt(
+        result = asyncio.run(send_mqtt_request(
             rriot,
             input_data["device_id"],
             input_data["local_key"],
             input_data["command"],
             input_data.get("params"),
+        ))
+        print(json.dumps(result), file=sys.stdout)
+    
+    elif action == "get_status":
+        if "device_id" not in input_data:
+            print(json.dumps({"error": "Missing 'device_id' for get_status"}), file=sys.stdout)
+            sys.exit(1)
+        if "local_key" not in input_data:
+            print(json.dumps({"error": "Missing 'local_key' for get_status"}), file=sys.stdout)
+            sys.exit(1)
+        
+        result = asyncio.run(get_device_status(
+            rriot,
+            input_data["device_id"],
+            input_data["local_key"],
         ))
         print(json.dumps(result), file=sys.stdout)
     

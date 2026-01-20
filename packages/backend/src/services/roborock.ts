@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { dirname, join } from "node:path";
@@ -8,6 +8,10 @@ import { config } from "../config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Python daemon configuration
+const DAEMON_PORT = 9876;
+const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
 import {
 	createDevice,
 	deviceQueries,
@@ -179,8 +183,69 @@ export interface RoborockDeviceState {
 	lastClean: string | null;
 }
 
+// MQTT status response from Python bridge (get_status command)
+export interface RoborockMqttStatus {
+	state?: number;
+	battery?: number;
+	fan_power?: number;
+	water_box_mode?: number;
+	main_brush_work_time?: number;
+	side_brush_work_time?: number;
+	filter_work_time?: number;
+	clean_area?: number;
+	clean_time?: number;
+	error_code?: number;
+	in_cleaning?: number;
+	in_returning?: number;
+	in_fresh_state?: number;
+	[key: string]: unknown;
+}
+
 // DPS state value mappings for status decoding
 // State 8 = charging, 5/7/11/16/17/18 = cleaning, 6/15 = returning, 10 = paused, 12/13 = error
+
+// Error categories for command failures
+export type RoborockErrorCategory =
+	| "device_offline"
+	| "auth_expired"
+	| "command_timeout"
+	| "missing_credentials"
+	| "unknown";
+
+export interface CommandResult {
+	success: boolean;
+	error?: string;
+	errorCategory?: RoborockErrorCategory;
+}
+
+/**
+ * Categorize an error message from the Python bridge or internal errors.
+ */
+function categorizeError(error: string): RoborockErrorCategory {
+	const lowerError = error.toLowerCase();
+	if (lowerError.includes("timeout") || lowerError.includes("timed out")) {
+		return "command_timeout";
+	}
+	if (
+		lowerError.includes("offline") ||
+		lowerError.includes("not reachable") ||
+		lowerError.includes("connection refused") ||
+		lowerError.includes("connection failed")
+	) {
+		return "device_offline";
+	}
+	if (
+		lowerError.includes("auth") ||
+		lowerError.includes("unauthorized") ||
+		lowerError.includes("expired") ||
+		lowerError.includes("invalid token") ||
+		lowerError.includes("credentials")
+	) {
+		return "auth_expired";
+	}
+	return "unknown";
+}
+
 const DPS_STATE_CHARGING = 8;
 const DPS_STATE_PAUSED = 10;
 const DPS_STATES_CLEANING = new Set([5, 7, 11, 16, 17, 18]);
@@ -944,26 +1009,41 @@ class RoborockService extends EventEmitter {
 		deviceId: string,
 		command: string,
 		params: RoborockCommandParam[] = [],
-	): Promise<boolean> {
+	): Promise<CommandResult> {
 		const creds = this.credentials.get(userId);
 		if (!creds) {
+			const error = "No credentials found for user";
 			log.warn(
 				{ userId, deviceId, command },
 				"Cannot send command: no credentials",
 			);
-			return false;
+			return {
+				success: false,
+				error,
+				errorCategory: "missing_credentials",
+			};
 		}
 
 		if (!creds.rriot) {
+			const error = "No IoT credentials available - please re-authenticate";
 			log.error({ userId }, "No rriot credentials for Python bridge");
-			return false;
+			return {
+				success: false,
+				error,
+				errorCategory: "auth_expired",
+			};
 		}
 
 		// Get localKey for the device
 		const localKey = this.deviceLocalKeys.get(deviceId);
 		if (!localKey) {
+			const error = "Device not found or missing encryption key";
 			log.error({ deviceId }, "No localKey for device");
-			return false;
+			return {
+				success: false,
+				error,
+				errorCategory: "unknown",
+			};
 		}
 
 		try {
@@ -977,13 +1057,25 @@ class RoborockService extends EventEmitter {
 
 			if (result.success) {
 				log.info({ deviceId, command, result: result.result }, "Command success");
-				return true;
+				return { success: true };
 			}
-			log.error({ deviceId, command, error: result.error }, "Command failed");
-			return false;
+
+			const error = result.error || "Command failed";
+			log.error({ deviceId, command, error }, "Command failed");
+			return {
+				success: false,
+				error,
+				errorCategory: categorizeError(error),
+			};
 		} catch (err) {
+			const error =
+				err instanceof Error ? err.message : "Failed to communicate with device";
 			log.error({ err, deviceId, command }, "Failed to send command via Python bridge");
-			return false;
+			return {
+				success: false,
+				error,
+				errorCategory: categorizeError(error),
+			};
 		}
 	}
 
@@ -1041,27 +1133,73 @@ class RoborockService extends EventEmitter {
 		});
 	}
 
-	startCleaning(userId: string, deviceId: string) {
+	startCleaning(userId: string, deviceId: string): Promise<CommandResult> {
 		return this.sendCommand(userId, deviceId, "app_start");
 	}
-	stopCleaning(userId: string, deviceId: string) {
+
+	stopCleaning(userId: string, deviceId: string): Promise<CommandResult> {
 		return this.sendCommand(userId, deviceId, "app_stop");
 	}
-	pauseCleaning(userId: string, deviceId: string) {
+
+	pauseCleaning(userId: string, deviceId: string): Promise<CommandResult> {
 		return this.sendCommand(userId, deviceId, "app_pause");
 	}
-	returnHome(userId: string, deviceId: string) {
+
+	returnHome(userId: string, deviceId: string): Promise<CommandResult> {
 		return this.sendCommand(userId, deviceId, "app_charge");
 	}
-	findRobot(userId: string, deviceId: string) {
+
+	findRobot(userId: string, deviceId: string): Promise<CommandResult> {
 		return this.sendCommand(userId, deviceId, "find_me");
+	}
+
+	/**
+	 * Get device status via Python bridge (MQTT).
+	 * Returns real-time status data from the device.
+	 */
+	async getDeviceStatusViaMqtt(
+		userId: string,
+		deviceId: string,
+	): Promise<{ success: boolean; status?: RoborockMqttStatus; error?: string }> {
+		const creds = this.credentials.get(userId);
+		if (!creds?.rriot) {
+			return { success: false, error: "No credentials" };
+		}
+
+		const localKey = this.deviceLocalKeys.get(deviceId);
+		if (!localKey) {
+			return { success: false, error: "Device not found" };
+		}
+
+		try {
+			const result = await this.callPythonBridge("get_status", {
+				rriot: creds.rriot,
+				device_id: deviceId,
+				local_key: localKey,
+			});
+
+			if (result.success && result.status) {
+				return {
+					success: true,
+					status: result.status as RoborockMqttStatus,
+				};
+			}
+
+			return { success: false, error: result.error || "Failed to get status" };
+		} catch (err) {
+			log.error({ err, deviceId }, "Failed to get status via MQTT");
+			return {
+				success: false,
+				error: err instanceof Error ? err.message : "Unknown error",
+			};
+		}
 	}
 
 	setFanSpeed(
 		userId: string,
 		deviceId: string,
 		speed: RoborockDeviceState["fanSpeed"],
-	) {
+	): Promise<CommandResult> {
 		const map = { quiet: 101, balanced: 102, turbo: 103, max: 104 };
 		return this.sendCommand(userId, deviceId, "set_custom_mode", [map[speed]]);
 	}
@@ -1070,14 +1208,18 @@ class RoborockService extends EventEmitter {
 		userId: string,
 		deviceId: string,
 		level: RoborockDeviceState["waterLevel"],
-	) {
+	): Promise<CommandResult> {
 		const map = { off: 200, low: 201, medium: 202, high: 203 };
 		return this.sendCommand(userId, deviceId, "set_water_box_custom_mode", [
 			map[level],
 		]);
 	}
 
-	cleanRooms(userId: string, deviceId: string, roomIds: number[]) {
+	cleanRooms(
+		userId: string,
+		deviceId: string,
+		roomIds: number[],
+	): Promise<CommandResult> {
 		return this.sendCommand(userId, deviceId, "app_segment_clean", [
 			{ segments: roomIds, repeat: 1 },
 		]);

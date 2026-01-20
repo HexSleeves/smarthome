@@ -45,8 +45,11 @@ export const ringRouter = router({
 	}),
 
 	connect: adminProcedure.mutation(async ({ ctx }) => {
-		await ringService.connectWithStoredCredentials(ctx.user.id);
-		return { success: true };
+		const success = await ringService.connectWithStoredCredentials(ctx.user.id);
+		return {
+			success,
+			error: success ? undefined : "Failed to connect with stored credentials",
+		};
 	}),
 
 	disconnect: adminProcedure.mutation(async ({ ctx }) => {
@@ -69,15 +72,28 @@ export const ringRouter = router({
 	toggleLight: adminProcedure
 		.input(z.object({ deviceId: z.string(), on: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			await ringService.toggleLight(ctx.user.id, input.deviceId, input.on);
-			return { success: true };
+			const success = await ringService.toggleLight(
+				ctx.user.id,
+				input.deviceId,
+				input.on,
+			);
+			return {
+				success,
+				error: success ? undefined : "Device does not have a light or not found",
+			};
 		}),
 
 	triggerSiren: adminProcedure
 		.input(z.object({ deviceId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			await ringService.triggerSiren(ctx.user.id, input.deviceId);
-			return { success: true };
+			const success = await ringService.triggerSiren(
+				ctx.user.id,
+				input.deviceId,
+			);
+			return {
+				success,
+				error: success ? undefined : "Device does not have a siren or not found",
+			};
 		}),
 
 	// HLS streaming endpoints

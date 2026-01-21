@@ -9,8 +9,14 @@ interface RoborockState {
 
 	// Actions
 	setDevices: (devices: RoborockDeviceState[]) => void;
-	updateDevice: (deviceId: string, update: Partial<RoborockDeviceState>) => void;
-	updateDeviceFromWebSocket: (deviceId: string, state: RoborockDeviceState) => void;
+	updateDevice: (
+		deviceId: string,
+		update: Partial<RoborockDeviceState>,
+	) => void;
+	updateDeviceFromWebSocket: (
+		deviceId: string,
+		state: RoborockDeviceState,
+	) => void;
 	clearDevices: () => void;
 }
 

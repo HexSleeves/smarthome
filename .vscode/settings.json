@@ -1,6 +1,6 @@
 {
-  "sonarlint.connectedMode.project": {
-    "connectionId": "HexSleeves",
-    "projectKey": "HexSleeves_smarthome"
-  }
+	"sonarlint.connectedMode.project": {
+		"connectionId": "HexSleeves",
+		"projectKey": "HexSleeves_smarthome"
+	}
 }

@@ -1,5 +1,5 @@
 {
-    "sonarCloudOrganization": "hexsleeves",
-    "projectKey": "HexSleeves_smarthome",
-    "region": "EU"
+	"sonarCloudOrganization": "hexsleeves",
+	"projectKey": "HexSleeves_smarthome",
+	"region": "EU"
 }

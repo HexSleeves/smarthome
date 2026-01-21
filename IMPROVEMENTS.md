@@ -11,16 +11,11 @@
 - **Role-based Access** - Admin vs Viewer permissions
 - **Dark Mode** - Three-way toggle (light/dark/system)
 
-### Frontend (shadcn/ui)
-
-- All components migrated to shadcn/ui
-- Responsive design with mobile sidebar
-- Cards, buttons, badges, alerts, tabs, forms, tooltips
-
 ### DevOps
 
 - Systemd service configuration
 - Management scripts (start/stop/restart/logs/status/install)
+- **Unit Testing Infrastructure** - Vitest configured for Backend
 
 ---
 
@@ -113,11 +108,21 @@ Better UX when 2FA is pending from a previous session.
 - [ ] Allow canceling pending 2FA
 - [ ] Auto-detect pending 2FA on page load
 
+### 9. Python Bridge Maintenance
+
+Ensure the Roborock Python bridge is robust.
+
+**Tasks:**
+
+- [ ] Add error handling for python process crashes
+- [ ] Auto-restart python subprocess if it dies
+- [ ] Add logging for python script output
+
 ---
 
 ## 🟢 Nice to Have
 
-### 9. Roborock Map Visualization
+### 10. Roborock Map Visualization
 
 Display vacuum cleaning maps.
 
@@ -128,7 +133,7 @@ Display vacuum cleaning maps.
 - [ ] Show real-time vacuum position
 - [ ] Display room boundaries
 
-### 10. Vacuum Scheduling
+### 11. Vacuum Scheduling
 
 Set cleaning schedules.
 
@@ -139,7 +144,7 @@ Set cleaning schedules.
 - [ ] Per-room scheduling
 - [ ] Recurring schedule support
 
-### 11. Ring Video History
+### 12. Ring Video History
 
 Playback of recorded events.
 
@@ -150,7 +155,7 @@ Playback of recorded events.
 - [ ] Event timeline view
 - [ ] Download option
 
-### 12. Multi-user Support
+### 13. Multi-user Support
 
 Multiple households/locations.
 
@@ -160,7 +165,7 @@ Multiple households/locations.
 - [ ] Share devices between users
 - [ ] Per-home device credentials
 
-### 13. Mobile App
+### 14. Mobile App
 
 PWA or React Native version.
 
@@ -171,19 +176,19 @@ PWA or React Native version.
 - [ ] Add to home screen prompt
 - [ ] Or: React Native app with shared types
 
-### 14. Unit Tests
+### 15. Unit Tests
 
-No test coverage currently.
+Expand test coverage.
 
 **Tasks:**
 
+- [x] Set up Vitest for backend
 - [ ] Set up Vitest for frontend
-- [ ] Set up Jest/Vitest for backend
 - [ ] Test auth flows
 - [ ] Test tRPC procedures
 - [ ] Test React components
 
-### 15. E2E Tests
+### 16. E2E Tests
 
 Playwright or Cypress tests.
 
@@ -194,7 +199,7 @@ Playwright or Cypress tests.
 - [ ] Test device control flows
 - [ ] CI integration
 
-### 16. API Documentation
+### 17. API Documentation
 
 OpenAPI/Swagger docs.
 
@@ -205,7 +210,7 @@ OpenAPI/Swagger docs.
 - [ ] Add request/response examples
 - [ ] Host docs at /api/docs
 
-### 17. Localization
+### 18. Localization
 
 i18n support for multiple languages.
 
@@ -220,7 +225,7 @@ i18n support for multiple languages.
 
 ## 🔧 Code Quality
 
-### 18. Error Logging
+### 19. Error Logging
 
 Centralized error tracking.
 
@@ -230,7 +235,7 @@ Centralized error tracking.
 - [ ] Add error context (user, device)
 - [ ] Set up alerts for critical errors
 
-### 19. Rate Limiting
+### 20. Rate Limiting
 
 Protect API from abuse.
 
@@ -241,7 +246,7 @@ Protect API from abuse.
 - [ ] Add rate limit headers
 - [ ] Exempt authenticated users (higher limits)
 
-### 20. Input Validation
+### 21. Input Validation
 
 More robust Zod schemas.
 
@@ -252,7 +257,7 @@ More robust Zod schemas.
 - [ ] Sanitize HTML in user inputs
 - [ ] Add custom error messages
 
-### 21. Code Splitting
+### 22. Code Splitting
 
 Lazy load routes to reduce bundle size (currently 1MB+).
 

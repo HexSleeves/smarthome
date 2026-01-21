@@ -5,9 +5,9 @@ import type {
 import { z } from "zod";
 import { hasCredentials } from "../../db/queries.js";
 import {
-	roborockService,
 	type CommandResult,
 	type RoborockErrorCategory,
+	roborockService,
 } from "../../services/roborock.js";
 import { adminProcedure, protectedProcedure, router } from "../trpc.js";
 

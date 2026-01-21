@@ -79,7 +79,9 @@ export const ringRouter = router({
 			);
 			return {
 				success,
-				error: success ? undefined : "Device does not have a light or not found",
+				error: success
+					? undefined
+					: "Device does not have a light or not found",
 			};
 		}),
 
@@ -92,7 +94,9 @@ export const ringRouter = router({
 			);
 			return {
 				success,
-				error: success ? undefined : "Device does not have a siren or not found",
+				error: success
+					? undefined
+					: "Device does not have a siren or not found",
 			};
 		}),
 

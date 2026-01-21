@@ -12,6 +12,7 @@ Direct integration with Roborock Cloud API (no cloud-free rooting required).
 - **Customization**: Adjust fan speed (Quiet/Balanced/Turbo/Max) and water level (Off/Low/Medium/High).
 - **Real-time Status**: Live monitoring of battery level, cleaning area, duration, and error states.
 - **Smart Auth**: Supports 2FA login flows directly from the dashboard.
+- **Robust Control**: Uses a Python bridge for reliable MQTT communication.
 
 ### 🔔 Ring Integration
 
@@ -47,19 +48,25 @@ This project is a **monorepo** managed with **Bun** workspaces.
 - **API**: [tRPC](https://trpc.io/) & WebSocket
 - **Device APIs**:
   - `ring-client-api` for Ring
-  - Custom implementation for Roborock Cloud API
+  - **Python Bridge**: `python-roborock` script for MQTT-based device control
 - **Video Processing**: `ffmpeg` for HLS transcoding
+
+### Shared (`packages/shared`)
+
+- **Types**: Shared TypeScript interfaces/types for API and WebSocket payloads.
 
 ### Tooling
 
 - **Package Manager**: [Bun](https://bun.sh/)
 - **Linter/Formatter**: [Biome](https://biomejs.dev/)
+- **Testing**: [Vitest](https://vitest.dev/)
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - **Node.js** (v20+) & **Bun** (v1.0+)
+- **Python 3.10+** (Required for Roborock bridge)
 - **FFmpeg** (Required for Ring live streaming)
 
 ### Installation
@@ -72,16 +79,27 @@ This project is a **monorepo** managed with **Bun** workspaces.
    bun install
    ```
 
-2. **Environment Setup**
+2. **Python Environment Setup**
+   The backend uses a Python virtual environment for the Roborock bridge.
+
+   ```bash
+   cd packages/backend
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install python-roborock paho-mqtt
+   cd ../..
+   ```
+
+3. **Environment Setup**
    Copy the example environment file to the backend package:
 
    ```bash
    cp .env.example packages/backend/.env
    ```
 
-   Edit `packages/backend/.env` with your secrets and preferences.
+   Edit `packages/backend/.env` with your secrets and preferences. Ensure `PORT` matches your expected configuration (default 3000, proxied to 8000).
 
-3. **Start Development**
+4. **Start Development**
 
    ```bash
    # Starts both backend and frontend in development mode
@@ -89,7 +107,7 @@ This project is a **monorepo** managed with **Bun** workspaces.
    ```
 
    - Frontend: `http://localhost:5173`
-   - Backend: `http://localhost:8000`
+   - Backend: `http://localhost:8000` (via Proxy/Nginx) or `http://localhost:3000` (Direct)
 
 ### Production
 

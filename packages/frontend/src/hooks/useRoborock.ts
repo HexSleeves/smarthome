@@ -4,12 +4,12 @@ import type {
 	RoborockWaterLevel,
 } from "@smarthome/shared";
 import { useEffect } from "react";
-import { wsClient } from "@/lib/websocket";
 import { trpc } from "@/lib/trpc/client";
+import { wsClient } from "@/lib/websocket";
 import {
-	useRoborockStore,
-	useRoborockDevicesFromStore,
 	useRoborockDeviceLastUpdated,
+	useRoborockDevicesFromStore,
+	useRoborockStore,
 } from "@/stores/roborock";
 
 export function useRoborockStatus() {

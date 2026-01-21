@@ -39,9 +39,7 @@ export const userQueries = {
 	create: db.query(
 		"INSERT INTO users (id, email, password_hash, name, role) VALUES (?, ?, ?, ?, ?)",
 	),
-	findByEmail: db.query<User, [string]>(
-		"SELECT * FROM users WHERE email = ?",
-	),
+	findByEmail: db.query<User, [string]>("SELECT * FROM users WHERE email = ?"),
 	findById: db.query<User, [string]>("SELECT * FROM users WHERE id = ?"),
 	list: db.query<User, []>("SELECT * FROM users ORDER BY created_at DESC"),
 };

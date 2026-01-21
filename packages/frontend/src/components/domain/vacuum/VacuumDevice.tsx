@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useRoborockDeviceLastUpdated } from "@/stores/roborock";
 import { cn } from "@/lib/utils";
+import { useRoborockDeviceLastUpdated } from "@/stores/roborock";
 import { VacuumControls } from "./VacuumControls";
 import { VacuumFanSpeed } from "./VacuumFanSpeed";
 import { VacuumStats } from "./VacuumStats";
@@ -19,18 +19,20 @@ type VacuumDeviceProps = {
 
 export function VacuumDevice({ device, isAdmin }: VacuumDeviceProps) {
 	const lastUpdatedTimestamp = useRoborockDeviceLastUpdated(device.id);
-	const lastUpdated = lastUpdatedTimestamp ? new Date(lastUpdatedTimestamp) : undefined;
+	const lastUpdated = lastUpdatedTimestamp
+		? new Date(lastUpdatedTimestamp)
+		: undefined;
 
 	// Track if we recently received an update (for visual feedback)
 	const [recentUpdate, setRecentUpdate] = useState(false);
 
 	useEffect(() => {
-		if (lastUpdated) {
+		if (lastUpdatedTimestamp) {
 			setRecentUpdate(true);
 			const timer = setTimeout(() => setRecentUpdate(false), 2000);
 			return () => clearTimeout(timer);
 		}
-	}, [lastUpdated]);
+	}, [lastUpdatedTimestamp]);
 
 	return (
 		<Card
@@ -53,13 +55,14 @@ export function VacuumDevice({ device, isAdmin }: VacuumDeviceProps) {
 									"flex items-center gap-1 text-xs",
 									recentUpdate ? "text-primary" : "text-muted-foreground",
 								)}
-								title={lastUpdated ? `Last update: ${lastUpdated.toLocaleTimeString()}` : ""}
+								title={
+									lastUpdated
+										? `Last update: ${lastUpdated.toLocaleTimeString()}`
+										: ""
+								}
 							>
 								<Radio
-									className={cn(
-										"w-3 h-3",
-										recentUpdate && "animate-pulse",
-									)}
+									className={cn("w-3 h-3", recentUpdate && "animate-pulse")}
 								/>
 								<span className="sr-only">Live</span>
 							</div>
